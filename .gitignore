@@ -7,4 +7,8 @@ __pycache__/
 
 # Ignore personal files (TODO: remove this later)
 output/
+price_listings/
+scraped_files/
+merged_files/
 web_scraper.py
+merge_files.py

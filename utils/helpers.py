@@ -1,5 +1,6 @@
 import re
 import time
+import ast
 from googlesearch import search
 from urllib.parse import urljoin, urlparse
 
@@ -208,3 +209,35 @@ def extract_subcategories(page, category_url):
     
     return subcategories
     
+def toCamelCase(s: str) -> str:
+    """
+        Convert a string to CamelCase format.
+        
+        Args:
+            s (str): The string to convert.
+        
+        Returns: 
+            str: The CamelCase formatted string.
+    """
+
+    parts = re.split(r"[\s_]", s)
+    return parts[0].lower() + "".join(word.capitalize() for word in parts[1:])
+
+def safeParseImageUrls(value: str) -> list:
+    """
+        Safely parse a string representation of a list of image URLs.
+        
+        Args:
+            value (str): The string to parse.
+        
+        Returns:
+            list: A list of image URLs if parsing is successful, otherwise an empty list.
+    """
+
+    if isinstance(value, list):
+        return value
+    
+    try:
+        return ast.literal_eval(value)
+    except:
+        return []
