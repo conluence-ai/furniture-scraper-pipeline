@@ -1,6 +1,6 @@
 # Furniture Scraper
 
-A smart and adaptable web scraper for extracting furniture product information from single or multiple websites. Built using **Playwright** and **BeautifulSoup**, it can intelligently navigates through complex website structures to collect: 
+A smart, adaptable and AI-driven web scraper for extracting furniture product information from single or multiple furniture websites. Built using Playwright and BeautifulSoup, it can intelligently navigates through complex website structures to collect: 
 - Product names
 - List of product image URLs
 - Designer name
@@ -9,31 +9,59 @@ A smart and adaptable web scraper for extracting furniture product information f
 
 ## Features
 
-- **Flexible Input Options** *(Working on it)*
-    
-    Accepts breand names as:
+- **Flexible Input Options:** Accepts brand names as:
     
     - A single string (e.g. "Casa Magna" or "https://www.casamagna.eu")
     - A list of brand names
     - A file input (`.csv`, `.xlsx`, or `.json`)
 
+- **Universal Compatibility:** Works with any furniture website without manual configuration.
 
-- **Smart Link Parsing** *(Working on it)*
+- **Smart Link Parsing:** Navigates through main categories, subcategories, and dynamically loaded content to reach product-level pages.
 
-    Navigates through main categories, subcategories, and dynamically loaded content to reach product-level pages.
+- **AI-Powered Extraction:** Automatically understands page structure and extracts product data.
 
-- **Duplicate Detection** - 
-- **Pagination Support** - 
-- **Rate Limiting & Page Load Handling**
-    
-    Built in delays and waits to accomodate slow-loading pages and avoid triggering anti-bot systems.
+- **Zero Configuration:** No need to write CSS selectors for each website.
+
+- **Web Interface:** Easy to use Vue.js frontend with Flask backend.
+
+- **Rate Limiting & Page Load Handling:** Built in delays and waits to accomodate slow-loading pages and avoid triggering anti-bot systems.
+
+## Architecture
+
+```sh
+    Frontend (Vue.js) -> Backend (Flask) -> Scraping Pipeline (Python)
+```
+
+- **Frontend:** `index.html` - Vue.js interface for inputting websites and viewing results.
+- **Backend:** Flask API that connects the frontend to the scraping pipeline.
+- **Pipeline:** Universal scraper that handles any furniture website.
 
 ## Requirements
 
-- Python 3.8+
-- [Playwright](https://palywright.dev/python)
-- Chromium browser (automatically installed via Playwright)
+### Python Dependencies
 
+```txt
+# Core scraping 
+requests
+beautifulsoup4
+lxml
+playwright
+
+# AI and NLP
+openai
+transformers
+torch
+
+# Async and utilities
+asyncio
+aiohttp
+python-dotenv
+
+# Web framework
+flask
+flask-cors
+```
 ## Installation
 
 1. Clone the repository:
@@ -52,6 +80,29 @@ A smart and adaptable web scraper for extracting furniture product information f
         playwright install
     ```
 
+## Running the Application
+
+1. Start the Flask backend
+
+    ```python
+    python ./backend/scraper.py
+    ```
+
+2. Open the frontend
+
+    ```txt
+    Open index.html in your browser
+    ```
+
+## Usage
+
+### Web Interface
+
+1. Open `index.html` in your browser
+2. Select the desired input type
+3. Enter furniture website
+4. Click "Start Scraping"
+
 ## Input Options
 
 The scraper accepts various forms of inputs to start the scraping process:
@@ -61,7 +112,7 @@ The scraper accepts various forms of inputs to start the scraping process:
     Provide a single brand name or official website url:
 
     ```python
-        "Casa Magna" or "https://www.casamagna.eu"
+    "Casa Magna" or "https://www.casamagna.eu"
     ```
 
 - **Multiple Brand Names or URLs**
@@ -69,7 +120,7 @@ The scraper accepts various forms of inputs to start the scraping process:
     A list of brand names or official URLs can be passed to process multiple websites
 
     ```python
-        ["Cassina", "Casa Magna"] or ["https://www.cassina.com/en", "https://www.casamagna.eu"]
+    ["Cassina", "Casa Magna"] or ["https://www.cassina.com/en", "https://www.casamagna.eu"]
     ```
 
 - **File Input**
