@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Scraping App</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.prod.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <h1>Web Scraping Application</h1>
+            
+            <!-- Form -->
+            <form @submit.prevent="submitForm" @keydown.enter="handleFormEnter">
+
+                <!-- Input Type -->
+                <div class="form-group">
+                    <label for="inputType">Select Input Type:</label>
+                    <select id="inputType" v-model="inputType" @change="resetInput">
+                        <option value="">Choose an option...</option>
+                        <option value="single">Single Brand Input</option>
+                        <option value="multiple" disabled>Multiple Input</option>
+                        <option value="file" disabled>File Input</option>
+                    </select>
+                </div>
+                
+                <!-- Input Field based on Input Type -->
+                <div class="form-group" v-if="inputType">
+                    <label for="dataInput">
+                        {{ inputType === 'single' ? 'Enter Brand Name:' : 
+                           inputType === 'multiple' ? 'Enter Items (Press Enter to add):' : 
+                           'Select File:' }}
+                    </label>
+                    
+                    <!-- Single Input -->
+                    <input 
+                        v-if="inputType === 'single'"
+                        id="dataInput"
+                        type="text" 
+                        v-model="singleInput"
+                        placeholder="Enter brand name..."
+                    />
+                    
+                    <!-- Multiple Input -->
+                    <div v-if="inputType === 'multiple'">
+                        <input 
+                            id="dataInput"
+                            type="text" 
+                            v-model="multipleInputValue"
+                            @keyup.enter="addMultipleItem"
+                            placeholder="Type and press Enter to add..."
+                        />
+                        <div class="input-list" v-if="multipleInputs.length > 0">
+                            <div v-for="(item, index) in multipleInputs" :key="index" class="input-item">
+                                <span>{{ item }}</span>
+                                <button type="button" class="remove-btn" @click="removeMultipleItem(index)">x</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- File Input -->
+                    <input 
+                        v-if="inputType === 'file'"
+                        id="dataInput"
+                        type="file" 
+                        @change="handleFileUpload"
+                        accept=".txt,.csv,.json"
+                    />
+                </div>
+                
+                <button type="submit" class="submit-btn" :disabled="!isFormValid || loading">
+                    {{ loading ? 'Processing...' : 'Start Scraping' }}
+                </button>
+            </form>
+            
+            <!-- Log field -->
+            <div class="result-container" v-if="result || error">
+                <div class="result-title">Result:</div>
+                <div v-if="loading" class="loading">Processing your request...</div>
+                <div v-else-if="error" class="error">{{ error }}</div>
+                <pre v-else class="result-content">{{ result }}</pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Import
+        const { createApp, ref, computed } = Vue;
+
+        createApp({
+            setup() {
+                // Initialize vairables
+                const inputType = ref('');
+                const singleInput = ref('');
+                const multipleInputValue = ref('');
+                const multipleInputs = ref([]);
+                const selectedFile = ref(null);
+                const result = ref('');
+                const error = ref('');
+                const loading = ref(false);
+
+                // validating input field
+                const isFormValid = computed(() => {
+                    if (!inputType.value) return false;
+                    
+                    switch (inputType.value) {
+                        case 'single':
+                            return singleInput.value.trim() !== '';
+                        case 'multiple':
+                            return multipleInputs.value.length > 0;
+                        case 'file':
+                            return selectedFile.value !== null;
+                        default:
+                            return false;
+                    }
+                });
+
+                // reset to initial state
+                const resetInput = () => {
+                    singleInput.value = '';
+                    multipleInputValue.value = '';
+                    multipleInputs.value = [];
+                    selectedFile.value = null;
+                    result.value = '';
+                    error.value = '';
+                };
+
+                // add multiple brand names
+                const addMultipleItem = () => {
+                    const value = multipleInputValue.value.trim();
+                    if (value && !multipleInputs.value.includes(value)) {
+                        multipleInputs.value.push(value);
+                        multipleInputValue.value = '';
+                    }
+                };
+
+                // remove brand name
+                const removeMultipleItem = (index) => {
+                    multipleInputs.value.splice(index, 1);
+                };
+
+                // handles file 
+                const handleFileUpload = (event) => {
+                    selectedFile.value = event.target.files[0];
+                };
+
+                // press enter key to add input and prevents from form submission
+                const handleFormEnter = (event) => {
+                    // Only allow Enter for multiple input field
+                    if (inputType.value === 'multiple' && event.target.id === 'dataInput') {
+                        return; // Allow Enter to add items
+                    }
+                    // Prevent Enter from submitting form for all other cases
+                    event.preventDefault();
+                };
+
+                // form submission
+                const submitForm = async () => {
+                    if (!isFormValid.value) return;
+
+                    loading.value = true;
+                    error.value = '';
+                    result.value = '';
+
+                    try {
+                        const formData = new FormData();
+                        formData.append('inputType', inputType.value);
+
+                        // initial payload based on input type
+                        switch (inputType.value) {
+                            case 'single':
+                                formData.append('data', singleInput.value);
+                                break;
+                            case 'multiple':
+                                formData.append('data', JSON.stringify(multipleInputs.value));
+                                break;
+                            case 'file':
+                                formData.append('file', selectedFile.value);
+                                break;
+                        }
+
+                        const response = await fetch('http://localhost:5000/process', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            result.value = data.result;
+                        } else {
+                            error.value = data.error || 'An error occurred while processing your request.';
+                        }
+                    } catch (err) {
+                        error.value = `Connection error: ${err.message}. Make sure the Flask server is running on port 5000.`;
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                return {
+                    inputType,
+                    singleInput,
+                    multipleInputValue,
+                    multipleInputs,
+                    selectedFile,
+                    result,
+                    error,
+                    loading,
+                    isFormValid,
+                    resetInput,
+                    addMultipleItem,
+                    removeMultipleItem,
+                    handleFileUpload,
+                    handleFormEnter,
+                    submitForm
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
