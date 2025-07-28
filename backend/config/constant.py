@@ -13,16 +13,35 @@ ANALYSIS = {
     'detected_patterns': []
 }
 
-PAGE_FRAMEWORK = ['vue', 'react', 'angular', 'nuxt', 'next']
+# PAGE_FRAMEWORK = ['vue', 'react', 'angular', 'nuxt', 'next']
+PAGE_FRAMEWORK = ['vue']
 
+# Common furniture-related classes and IDs
 FURNITURE_INDICATORS = [
-    'product', 'item', 'catalog', 'furniture', 'sofa', 'chair', 
+    'product', 'item', 'catalog', 'furniture', 'sofa', 'chair',  \
     'table', 'collection', 'designer', 'brand', 'category'
 ]
 
+# Enhanced selectors for category links
+CATEGORY_SELECTORS = [
+    'a[href*="category"]', 'a[href*="collection"]', 'a[href*="products"]', \
+    'a[href*="sofa"]', 'a[href*="armchair"]', '.category a', '.collection a', \
+    '.product-category a', '.nav a', '.menu a', '.navigation a', \
+    'a[class*="category"]', 'a[class*="collection"]', 'a[href*="product"]'
+]
+
+# Constants for link selectors
 LINK_SELECTORS = [
-    'a[href*="product"]', 'a[href*="item"]', \
-    '.product a', '.item a', 'a[class*="product"]'
+    'a[href*="product"]', 'a[href*="item"]', 'a[href*="collection"]', \
+    'a[href*="category"]', 'a[href*="furniture"]', 'a[href*="sofa"]', \
+    'a[href*="armchair"]', '.product a', '.item a', '.collection a', \
+    '.category a', 'a[class*="product"]', 'a[class*="item"]', 'a[class*="collection"]'
+]
+
+# Filter links based on requested categories or furniture keywords
+FURNITURE_KEYWORDS = [
+    'sofa', 'collection', 'product', 'furniture', \
+    'armchair', 'bookshelf', 'container', 'complement'
 ]
 
 SELECTORS_TO_TRY = [
