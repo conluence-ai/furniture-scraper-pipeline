@@ -34,13 +34,18 @@ class WebsiteAnalyzer:
             Returns:
                 Dict[str, Any]: A dictionary containing configuration details
         """
+        logger.info(f"Analysing website {url} to determine scraping strategy")
+        
         try:
             analysis = ANALYSIS
+            analysis['url'] = url
+
             response = self.session.get(url, timeout=10)
             soup = BeautifulSoup(response.content, 'html.parser')
             
             # Check for JavaScript frameworks
             scripts = soup.find_all('script')
+            
             for script in scripts:
                 script_content = script.string or ''
                 script_src = script.get('src', '')
