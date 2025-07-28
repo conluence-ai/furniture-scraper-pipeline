@@ -136,8 +136,8 @@ def logSummary(results: List) -> str:
         summary += f"\n  {cat}: {count} products"
         logger.info(f"  {cat}: {count} products")
         
-    summary = f"\nTOTAL: {len(results)} products\n"
-    logger.info(f"\n TOTAL: {len(results)} products")
+    summary += f"\nTOTAL: {len(results)} products"
+    logger.info(f"TOTAL: {len(results)} products")
     logger.info("="*60)
 
     return summary
