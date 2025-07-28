@@ -178,7 +178,7 @@ class AIContentExtractor:
         img_elements = soup.find_all('img')
         for img in img_elements:
             src = img.get('src') or img.get('data-src') or img.get('data-lazy')
-            if src and '.svg' not in src:
+            if src and '.svg' not in src and '.gif' not in src:
                 full_url = urljoin(url, src)
                 result['imageUrls'].append(full_url)
         
