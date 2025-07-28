@@ -6,15 +6,18 @@ from bs4 import BeautifulSoup
 from typing import Dict, List
 from urllib.parse import urljoin
 from config.product import Product
-from config.constant import LINK_SELECTORS
 from logs.loggers import loggerSetup, logger
 from utils.helpers import discoverCategoryUrls
 from config.web_analyzer import WebsiteAnalyzer
 from config.content_extractor import AIContentExtractor
 from config.playwright_scraper import PlaywrightScraper
+from config.constant import LINK_SELECTORS, CATEGORY_SELECTORS, FURNITURE_KEYWORDS
 
 # Set up logs
 loggerSetup()
+
+# Global variables
+seen_links = set()
 
 class UniversalFurnitureScraper:
     """Universal scraper that can handle any furniture website"""
@@ -62,7 +65,8 @@ class UniversalFurnitureScraper:
         # Choose scraping strategy based on wesite complexity
         if analysis['requires_js']:
             logger.info(f"Scrapping using Playwright")
-            return await self._scrapeWithPlaywright(base_url, categories, max_products)
+            return None
+            # return await self._scrapeWithPlaywright(base_url, categories, max_products)
         else:
             logger.info(f"Scrapping using Requests")
             return await self._scrapeWithRequests(base_url, categories, max_products)
@@ -145,44 +149,142 @@ class UniversalFurnitureScraper:
         results = []
         
         try:
-            response = self.session.get(base_url, timeout=10)
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Find product links
-            product_links = []
-            
-            for selector in LINK_SELECTORS:
-                links = soup.select(selector)
-                for link in links:
-                    href = link.get('href')
-                    if href:
-                        full_url = urljoin(base_url, href)
-                        if full_url not in product_links:
-                            product_links.append(full_url)
-            
-            # Limit products
-            product_links = product_links[:max_products]
-            
-            products = []
-            for product_url in product_links:
-                try:
-                    response = self.session.get(product_url, timeout=10)
-                    
-                    if self.use_ai:
-                        product = self.ai_extractor.extractProductInfo(response.text, product_url)
-                        if product:
-                            products.append(product)
-                    
-                    time.sleep(1)  # Rate limiting
-                    
-                except Exception as e:
-                    logger.error(f"Error processing product {product_url}: {e}")
-                    continue
-            
-            results = products
+            # Find category URLs from the main page
+            category_urls = self._discoverCategoryUrlsRequests(base_url, categories)
+
+
+            # For each category, discover product URLs and scrape them
+            for category_name, category_url in category_urls.items():
+                logger.info(f"Processing category: {category_name} - {category_url}")
+                
+                category_products = []
+                
+                # Get product URLs from this category page
+                product_urls = self._discoverProductUrlsRequests(category_url)
+                logger.info(f"Found {len(product_urls)} product URLs in category: {category_name}")
+                
+                # Scrape each product
+                for product_url in product_urls:
+                    try:
+                        response = self.session.get(product_url, timeout=10)
+                        
+                        if self.use_ai:
+                            product = self.ai_extractor.extractProductInfo(response.text, product_url)
+                            if product:
+                                product.category = category_name
+                                category_products.append(product)
+                                logger.info(f"Successfully scraped product: {product.productName}")
+                        
+                        time.sleep(1)  # Rate limiting
+                        
+                    except Exception as e:
+                        logger.error(f"Error processing product {product_url}: {e}")
+                        continue
+                
+                results.append(category_products)
+                logger.info(f"Completed category {category_name}: {len(category_products)} products")
             
         except Exception as e:
             logger.error(f"Error scraping {base_url}: {e}")
         
         return results
-    
+
+    def _discoverCategoryUrlsRequests(self, base_url: str, categories: List[str] = None) -> Dict[str, str]:
+        """
+            Discover category URLs from the main page using requests.
+
+            Args:
+                base_url (str): The base URL of the website to scan for category links.
+                categories (List[str]): A list of category names to look for in the page.
+                                    If None, all links may be considered.
+
+            Returns:
+                Dict[str, str]: A dictionary mapping each found category to its corresponding URL.
+        """
+        category_urls = {}
+        
+        try:
+            response = self.session.get(base_url, timeout=10)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            found_links = []
+
+            for selector in CATEGORY_SELECTORS:
+                links = soup.select(selector)
+                for link in links:
+                    href = link.get('href')
+                    text = link.get_text().strip().lower()
+                    if href:
+                        full_url = urljoin(base_url, href)
+                        if full_url and full_url not in seen_links:
+                            seen_links.add(full_url)
+                            found_links.append((full_url, text))
+                            logger.info(f"Category link found: {text} -> {full_url}")
+            
+            if categories:
+                # Filter by requested categories
+                for url, text in found_links:
+                    for category in categories:
+                        if text in category.lower() or category.lower() in url.lower():
+                            category_urls[category] = url
+                            break
+            else:
+                # Auto-detect furniture categories
+                for url, text in found_links:
+                    for keyword in FURNITURE_KEYWORDS:
+                        if keyword in text or keyword in url.lower():
+                            # Use the keyword as category name
+                            category_name = keyword
+                            if text and len(text) < 50:  # Use link text if reasonable
+                                category_name = text.replace(' ', '_')
+                            category_urls[category_name] = url
+                            break
+            
+            # If no specific categories found, use the main product links
+            if not category_urls:
+                for url, text in found_links:
+                    if any(word in url.lower() for word in ['product', 'collection', 'catalog']):
+                        category_urls[text or 'products'] = url
+            
+            logger.info(f"Discovered {len(category_urls)} category URLs: {list(category_urls.keys())}")
+            return category_urls
+            
+        except Exception as e:
+            logger.error(f"Error discovering categories from {base_url}: {e}")
+            return {'all': base_url}  # Fallback to base URL
+        
+
+    def _discoverProductUrlsRequests(self, base_url: str) -> List[str]:
+        """
+            Discover product URLs from the main page using requests.
+
+            Args:
+                base_url (str): The base URL of the website to scan for product links.
+
+            Returns:
+                List[str]: A List of product URL found.
+        """
+        product_urls = []
+        
+        try:
+            response = self.session.get(base_url, timeout=10)
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            for selector in CATEGORY_SELECTORS:
+                links = soup.select(selector)
+                for link in links:
+                    href = link.get('href')
+                    text = link.get_text().strip().lower()
+                    if href:
+                        full_url = urljoin(base_url, href)
+                        if full_url and full_url not in seen_links:
+                            seen_links.add(full_url)
+                            product_urls.append(full_url)
+                            logger.info(f"Product link found: {text} -> {full_url}")
+            
+            logger.info(f"Discovered {len(product_urls)} product URLs")
+            return product_urls
+            
+        except Exception as e:
+            logger.error(f"Error discovering categories from {base_url}: {e}")
+            return {'all': base_url}  # Fallback to base URL
