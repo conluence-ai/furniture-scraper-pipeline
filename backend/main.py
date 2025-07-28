@@ -46,7 +46,7 @@ async def processSingleInput(data: str) -> str:
         site_url = brand_input
         website_name = getWebsiteName(site_url)
         
-        result = f"Brand Name: {website_name}\n"
+        result = f"Brand Name: {website_name.capitalize()}\n"
         result += f"Official Website: {site_url}\n"
     else:
         logger.info(f"Searching for official website of company: {brand_input}")
@@ -71,19 +71,19 @@ async def processSingleInput(data: str) -> str:
         # Initialize pipeline
         pipeline = FurnitureScrapingPipeline() # without AI
         # pipeline = FurnitureScrapingPipeline(openai_api_key="openai_key")  # with AI
-
+        
         res = await pipeline.scrapeAnyWebsite(
             site_url, 
             categories=CATEGORIES
         )
+
         logger.info(f"Category information extracted for {site_url}")
         
-        result = logSummary(res)
+        result += "\n" + logSummary(res)
 
         logger.info(f"Converting the scraped data to Excel file: 'scraped_files/{website_name}.xlsx'")
-        exportToExcel(res, f'scraped_files/{website_name}')
+        exportToExcel(res, f'scraped_file/{website_name}')
         logger.info(f"Stored data to Excel file: 'scraped_files/{website_name}.xlsx'")
-
 
     except Exception as e:
         logger.error(f"Error processing URL {site_url}: {e}")
