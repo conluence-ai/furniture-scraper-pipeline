@@ -1,10 +1,10 @@
 import logging
 
-def validationLoggerSetup():
+def loggerSetup():
     """
-        Set up the logger for validation logs.
+        Set up the logger for logs.
         
-        This function configures the logging settings for the validation module,
+        This function configures the logging settings for the module,
         including the log file name, logging level, format, and date format.
     """
     
