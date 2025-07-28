@@ -1,15 +1,12 @@
 # Import necessary libraries
 import os
-import json
 import asyncio
 from flask_cors import CORS
 from flask import Flask, request, jsonify
-from werkzeug.utils import secure_filename
 from logs.loggers import loggerSetup, logger
-from werkzeug.datastructures import FileStorage
 from config.constant import UPLOAD_FOLDER, CATEGORIES
 from services.scraper import FurnitureScrapingPipeline
-from utils.helpers import allowedFile, isValidUrl, getWebsiteName, searchOfficialWebsite, exportToExcel, logSummary
+from utils.helpers import isValidUrl, getWebsiteName, searchOfficialWebsite, exportToExcel, logSummary
 
 # Set up logs
 loggerSetup()
