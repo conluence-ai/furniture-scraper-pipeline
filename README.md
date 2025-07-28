@@ -45,17 +45,14 @@ A smart, adaptable and AI-driven web scraper for extracting furniture product in
 # Core scraping 
 requests
 beautifulsoup4
-lxml
 playwright
 
 # AI and NLP
 openai
 transformers
-torch
 
 # Async and utilities
 asyncio
-aiohttp
 python-dotenv
 
 # Web framework

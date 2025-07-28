@@ -1,2 +1,10 @@
-playwright
-google
+Flask==2.3.3
+Flask-CORS==4.0.0
+Werkzeug==2.3.7
+google==3.0.0
+requests>=2.31.0
+beautifulsoup4>=4.12.2
+openai==0.28
+transformers>=4.35.0
+playwright>=1.40
+asyncio
