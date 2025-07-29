@@ -4,8 +4,8 @@ import asyncio
 from flask_cors import CORS
 from flask import Flask, request, jsonify
 from logs.loggers import loggerSetup, logger
-from config.constant import UPLOAD_FOLDER, CATEGORIES
 from services.scraper import FurnitureScrapingPipeline
+from config.constant import UPLOAD_FOLDER, CATEGORIES, SCRAPED_FOLDER
 from utils.helpers import isValidUrl, getWebsiteName, searchOfficialWebsite, exportToExcel, logSummary
 
 # Set up logs
@@ -20,6 +20,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Create upload directory if it doesn't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(SCRAPED_FOLDER, exist_ok=True)
 
 async def processSingleInput(data: str) -> str:
     """
@@ -70,19 +71,19 @@ async def processSingleInput(data: str) -> str:
 
         # Initialize pipeline
         pipeline = FurnitureScrapingPipeline() # without AI
-        # pipeline = FurnitureScrapingPipeline(openai_api_key="openai_key")  # with AI
+        # openai_key = "openai-api-key"
+        # pipeline = FurnitureScrapingPipeline(openai_api_key=openai_key)  # with AI
         
         res = await pipeline.scrapeAnyWebsite(
             site_url, 
             categories=CATEGORIES
         )
-
         logger.info(f"Category information extracted for {site_url}")
-        
-        result += "\n" + logSummary(res)
+
+        result += "\n" + logSummary(res[0])
 
         logger.info(f"Converting the scraped data to Excel file: 'scraped_files/{website_name}.xlsx'")
-        exportToExcel(res, f'scraped_file/{website_name}')
+        exportToExcel(res[0], f'scraped_file/{website_name}')
         logger.info(f"Stored data to Excel file: 'scraped_files/{website_name}.xlsx'")
 
     except Exception as e:
