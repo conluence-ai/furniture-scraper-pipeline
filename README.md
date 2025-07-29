@@ -82,7 +82,7 @@ flask-cors
 1. Start the Flask backend
 
     ```python
-    python ./backend/scraper.py
+    python ./backend/main.py
     ```
 
 2. Open the frontend
