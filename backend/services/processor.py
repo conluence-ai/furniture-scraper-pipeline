@@ -1,17 +1,19 @@
 # Import necessary libraries
+import re
 import time
 import asyncio
 import requests
 from bs4 import BeautifulSoup
-from typing import Dict, List
+from dataclasses import asdict
 from urllib.parse import urljoin
 from config.product import Product
+from typing import Dict, List, Optional
+from utils.helpers import isProductImage
 from logs.loggers import loggerSetup, logger
-from utils.helpers import discoverCategoryUrls
 from config.web_analyzer import WebsiteAnalyzer
 from config.content_extractor import AIContentExtractor
 from config.playwright_scraper import PlaywrightScraper
-from config.constant import LINK_SELECTORS, CATEGORY_SELECTORS, FURNITURE_KEYWORDS
+from config.constant import CATEGORY_SELECTORS, FURNITURE_KEYWORDS, PRODUCT_RESULT, NAME_SELECTORS, DESC_SELECTORS, DESIGNER_SELECTORS, IMAGE_SELECTORS
 
 # Set up logs
 loggerSetup()
@@ -65,8 +67,7 @@ class UniversalFurnitureScraper:
         # Choose scraping strategy based on wesite complexity
         if analysis['requires_js']:
             logger.info(f"Scrapping using Playwright")
-            return None
-            # return await self._scrapeWithPlaywright(base_url, categories, max_products)
+            return await self._scrapeWithPlaywright(base_url, categories, max_products)
         else:
             logger.info(f"Scrapping using Requests")
             return await self._scrapeWithRequests(base_url, categories, max_products)
@@ -92,31 +93,41 @@ class UniversalFurnitureScraper:
             
             # Discover category pages or use base URL
             if categories:
-                category_urls = await discoverCategoryUrls(base_url, categories)
+                category_urls = await self._discoverCategoryUrlsPlaywright(base_url, categories)
             else:
-                category_urls = {'all': base_url}
+                category_urls = [base_url]
             
-            for category, category_url in category_urls.items():
-                logger.info(f"Scraping category: {category}")
+            for category_url in category_urls:
+                logger.info(f"Scraping category: {category_url}")
                 
+                category = ""
+
+                for cat in categories:
+                    if cat.lower() in category_url.lower():
+                        category = cat
+
                 # Discover product URLs
                 product_urls = await self.playwright_scraper.discoverProducts(category_url, category)
                 
                 # Limit products per category
-                product_urls = product_urls[:max_products // len(category_urls)]
+                if len(category_urls) > 1:
+                    product_urls = product_urls[:max_products // len(category_urls)]
+                else:
+                    product_urls = product_urls[:max_products]
                 
                 products = []
                 for product_url in product_urls:
                     try:
-                        # Get page content
+                        # Get page content with playwright
                         html_content = await self.playwright_scraper.scrapePage(product_url)
                         
                         if html_content and self.use_ai:
                             # Extract product info using AI
-                            product = self.ai_extractor.extractProductInfo(html_content, product_url)
+                            product = self._extractProductInfoPlaywright(html_content, product_url, category)
                             if product:
-                                product.category = category
-                                products.append(product)
+                                product_dict = asdict(product)
+                                products.append(product_dict)
+                                logger.info(f"Successfully scraped product: {product.name}")
                         
                         # Rate limiting
                         await asyncio.sleep(1)
@@ -125,13 +136,218 @@ class UniversalFurnitureScraper:
                         logger.error(f"Error processing product {product_url}: {e}")
                         continue
                 
-                results = products
+                results.append(products)
                 logger.info(f"Scraped {len(products)} products from {category}")
             
             return results
             
         finally:
             await self.playwright_scraper.cleanup()
+
+    async def _discoverCategoryUrlsPlaywright(self, base_url: str, categories: List[str] = None) -> List[str]:
+        """
+            Discover category URLs from the main page using playwright.
+
+            Args:
+                base_url (str): The base URL of the website to scan for product links.
+                categories (List[str], optional): A list of category names to search for.
+
+            Returns:
+                List[str]: A List of product URL found.
+        """
+        category_urls = []
+        page = await self.playwright_scraper.context.new_page()
+        
+        try:
+            await page.goto(base_url, wait_until='networkidle')
+            await page.wait_for_timeout(3000)  # Wait for dynamic content
+            
+            # Get all links after JavaScript execution
+            links = await page.evaluate('''
+                () => {
+                    const allLinks = [];
+                    const linkElements = document.querySelectorAll('a[href]');
+                    
+                    linkElements.forEach(link => {
+                        const href = link.href;
+                        const text = link.textContent.trim().toLowerCase();
+                        const classList = Array.from(link.classList).join(' ').toLowerCase();
+                        
+                        if (href && text) {
+                            allLinks.push({
+                                url: href,
+                                text: text,
+                                classes: classList
+                            });
+                        }
+                    });
+                    
+                    return allLinks;
+                }
+            ''')
+            
+            logger.info(f"Found {len(links)} links via Playwright from {base_url}")
+            
+            if categories:
+                # Filter by requested categories
+                for link_data in links:
+                    url, text = link_data['url'], link_data['text']
+                    for category in categories:
+                        if (category.lower() in text or 
+                            category.lower() in url.lower() or
+                            any(keyword in text for keyword in FURNITURE_KEYWORDS if keyword in category.lower())):
+                            category_urls.append(url)
+                            logger.info(f"Category found: {category} -> {url}")
+                            break
+            else:
+                # Auto-detect furniture categories
+                for link_data in links:
+                    url, text = link_data['url'], link_data['text']
+                    for keyword in FURNITURE_KEYWORDS:
+                        if (keyword in text or keyword in url.lower()):
+                            category_name = keyword
+                            if text and len(text) < 50:
+                                category_name = text.replace(' ', '_')
+                            category_urls.append(url)
+                            logger.info(f"Auto-detected category: {category_name} -> {url}")
+                            break
+            
+            # Fallback: if no categories found, try navigation menu
+            if not category_urls:
+                nav_links = await page.evaluate('''
+                    () => {
+                        const navSelectors = ['nav a', '.navigation a', '.menu a', '.navbar a', '.header a'];
+                        const navLinks = [];
+                        
+                        navSelectors.forEach(selector => {
+                            const elements = document.querySelectorAll(selector);
+                            elements.forEach(el => {
+                                if (el.href && el.textContent.trim()) {
+                                    navLinks.push({
+                                        url: el.href,
+                                        text: el.textContent.trim().toLowerCase()
+                                    });
+                                }
+                            });
+                        });
+                        
+                        return navLinks;
+                    }
+                ''')
+                
+                for link_data in nav_links:
+                    url, text = link_data['url'], link_data['text']
+                    if any(keyword in text or keyword in url.lower() for keyword in ['product', 'collection', 'catalog']):
+                        category_urls.append(url)
+            
+            logger.info(f"Discovered {len(category_urls)} category URLs: {list(category_urls.keys())}")
+            return category_urls if category_urls else [base_url]
+            
+        except Exception as e:
+            logger.error(f"Error discovering categories from {base_url}: {e}")
+            return [base_url]
+        finally:
+            await page.close()
+
+    async def _extractProductInfoPlaywright(self, html_content: str, product_url: str, category: str) -> Optional[Product]:
+        """
+            Extract product information from Playwright-rendered content.
+
+            Args:
+                html_content (str): The raw HTML content of the product page.
+                product_url (str): The URL of the product page.
+                category (str): A category name to search for.
+
+            Returns:
+                Optional[Product]: A Product object containing extracted information, or None of extraction fails or content not found.
+        """
+        
+        # If AI is available, use it first
+        if self.use_ai:
+            try:
+                product = self.ai_extractor.extractProductInfo(html_content, product_url)
+                if product:
+                    product.category = category
+                    return product
+            except Exception as e:
+                logger.debug(f"AI extraction failed, falling back to heuristics: {e}")
+        
+        # Fallback to enhanced heuristic extraction for dynamic content
+        return await self._extractWithPlaywrightHeuristics(html_content, product_url, category)
+    
+    async def _extractWithPlaywrightHeuristics(self, html_content: str, product_url: str, category: str) -> Optional[Product]:
+        """Enhanced heuristic extraction for Playwright-rendered content"""
+        """
+            Extract product information using heuristic patterns for Playwright-rendered conten.
+
+            Args:
+                html_content (str): The raw HTML content of the product page.
+                product_url (str): The URL of the product page.
+                category (str): A category name to search for.
+            
+            Returns:
+                Optional[Dict]: A dictionary containing product attributes, or None if no data found.
+        """
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Remove script and style elements
+        for script in soup(["script", "style"]):
+            script.decompose()
+        
+        result = PRODUCT_RESULT
+        result['productUrl'] = product_url
+        result['category'] = category
+        
+        # Extract name
+        for selector in NAME_SELECTORS:
+            element = soup.select_one(selector)
+            if element and element.get_text().strip():
+                result['name'] = element.get_text().strip()
+                break
+        
+        # Extract description
+        for selector in DESC_SELECTORS:
+            element = soup.select_one(selector)
+            if element and element.get_text().strip():
+                desc_text = element.get_text().strip()
+                # Skip if description is too short or looks like a title
+                if len(desc_text) > 20 and desc_text.lower() != result['name'].lower():
+                    result['description'] = desc_text
+                    break
+        
+        # Extract designer
+        for selector in DESIGNER_SELECTORS:
+            element = soup.select_one(selector)
+            if element and element.get_text().strip():
+                designer_text = element.get_text().strip()
+                # Clean up common prefixes
+                designer_text = re.sub(r'^(by|design by|designer:?|brand:?)\s*', '', designer_text, flags=re.IGNORECASE)
+                result['designer'] = designer_text
+                break
+        
+        found_images = set()
+        for selector in IMAGE_SELECTORS:
+            img_elements = soup.select(selector)
+            for img in img_elements:
+                # Try multiple attributes for image source
+                src = (img.get('src') or img.get('data-src') or 
+                      img.get('data-lazy') or img.get('data-original'))
+                
+                if src:
+                    # Convert relative URLs to absolute
+                    full_url = urljoin(product_url, src)
+                    
+                    # Filter out non-product images
+                    if isProductImage(src, img.get('alt', '')):
+                        found_images.add(full_url)
+        
+        result['image_urls'] = list(found_images)
+        
+        # Return product if we have at least a name
+        if result['name']:
+            return Product(**result)
+        
+        return None
     
     async def _scrapeWithRequests(self, base_url: str, categories: List[str], max_products: int) -> List[Product]:
         """
@@ -152,11 +368,16 @@ class UniversalFurnitureScraper:
             # Find category URLs from the main page
             category_urls = self._discoverCategoryUrlsRequests(base_url, categories)
 
-
             # For each category, discover product URLs and scrape them
-            for category_name, category_url in category_urls.items():
-                logger.info(f"Processing category: {category_name} - {category_url}")
+            for category_url in category_urls:
+                logger.info(f"Processing category: {category_url}")
                 
+                category_name = ""
+
+                for cat in categories:
+                    if cat.lower() in category_url.lower():
+                        category_name = cat
+
                 category_products = []
                 
                 # Get product URLs from this category page
@@ -172,7 +393,9 @@ class UniversalFurnitureScraper:
                             product = self.ai_extractor.extractProductInfo(response.text, product_url)
                             if product:
                                 product.category = category_name
-                                category_products.append(product)
+                                product_dict = asdict(product)
+                                category_products.append(product_dict)
+
                                 logger.info(f"Successfully scraped product: {product.productName}")
                         
                         time.sleep(1)  # Rate limiting
@@ -201,7 +424,7 @@ class UniversalFurnitureScraper:
             Returns:
                 Dict[str, str]: A dictionary mapping each found category to its corresponding URL.
         """
-        category_urls = {}
+        category_urls = []
         
         try:
             response = self.session.get(base_url, timeout=10)
@@ -225,8 +448,8 @@ class UniversalFurnitureScraper:
                 # Filter by requested categories
                 for url, text in found_links:
                     for category in categories:
-                        if text in category.lower() or category.lower() in url.lower():
-                            category_urls[category] = url
+                        if category.lower() in text or category.lower() in url.lower():
+                            category_urls.append(url)
                             break
             else:
                 # Auto-detect furniture categories
@@ -237,16 +460,16 @@ class UniversalFurnitureScraper:
                             category_name = keyword
                             if text and len(text) < 50:  # Use link text if reasonable
                                 category_name = text.replace(' ', '_')
-                            category_urls[category_name] = url
+                            category_urls.append(url)
                             break
             
             # If no specific categories found, use the main product links
             if not category_urls:
                 for url, text in found_links:
                     if any(word in url.lower() for word in ['product', 'collection', 'catalog']):
-                        category_urls[text or 'products'] = url
+                        category_urls.append(url)
             
-            logger.info(f"Discovered {len(category_urls)} category URLs: {list(category_urls.keys())}")
+            logger.info(f"Discovered {len(category_urls)} category URLs")
             return category_urls
             
         except Exception as e:
