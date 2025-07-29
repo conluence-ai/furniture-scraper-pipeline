@@ -7,6 +7,7 @@ from urllib.parse import urljoin
 from typing import Dict, Optional
 from transformers import pipeline
 from config.product import Product
+from utils.helpers import isValidImageSrc
 from logs.loggers import loggerSetup, logger
 from config.constant import PRODUCT_RESULT, NAME_SELECTORS, DESC_SELECTORS, DESIGNER_SELECTORS, CATEGORIES
 
@@ -143,12 +144,14 @@ class AIContentExtractor:
         """
         result = PRODUCT_RESULT
         result['productUrl'] = url
+        product_name = ""
         
         # Extract name (usually in h1, h2, or title-like classes)
         for selector in NAME_SELECTORS:
             element = soup.select_one(selector)
             if element and element.get_text().strip():
-                result['productName'] = element.get_text().strip()
+                product_name = element.get_text().strip()
+                result['productName'] = element.get_text().strip().title()
                 break
         
         # Extract description
@@ -175,11 +178,15 @@ class AIContentExtractor:
                 break
         
         # Extract images
+        image_urls = []
         img_elements = soup.find_all('img')
         for img in img_elements:
             src = img.get('src') or img.get('data-src') or img.get('data-lazy')
-            if src and '.svg' not in src and '.gif' not in src:
+
+            product_name = result['productName'].split(" ")[0]
+            if src and isValidImageSrc(src, product_name):
                 full_url = urljoin(url, src)
-                result['imageUrls'].append(full_url)
+                image_urls.append(full_url)
         
+        result['imageUrls'] = image_urls
         return result if result['productName'] else None
