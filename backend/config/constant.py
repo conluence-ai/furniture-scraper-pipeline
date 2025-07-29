@@ -1,8 +1,11 @@
 UPLOAD_FOLDER = 'uploads'
 
+SCRAPED_FOLDER = 'scraped_file'
+
 ALLOWED_EXTENSIONS = {'txt', 'csv', 'json', 'xlsx'}
 
-CATEGORIES = ['sofas', 'armchairs']
+# CATEGORIES = ['sofa', 'armchair']
+CATEGORIES = ['armchair']
 
 ANALYSIS = {
     'url': str,
@@ -28,14 +31,6 @@ CATEGORY_SELECTORS = [
     'a[href*="sofa"]', 'a[href*="armchair"]', '.category a', '.collection a', \
     '.product-category a', '.nav a', '.menu a', '.navigation a', \
     'a[class*="category"]', 'a[class*="collection"]', 'a[href*="product"]'
-]
-
-# Constants for link selectors
-LINK_SELECTORS = [
-    'a[href*="product"]', 'a[href*="item"]', 'a[href*="collection"]', \
-    'a[href*="category"]', 'a[href*="furniture"]', 'a[href*="sofa"]', \
-    'a[href*="armchair"]', '.product a', '.item a', '.collection a', \
-    '.category a', 'a[class*="product"]', 'a[class*="item"]', 'a[class*="collection"]'
 ]
 
 # Filter links based on requested categories or furniture keywords
@@ -67,16 +62,27 @@ PRODUCT_RESULT = {
 }
 
 NAME_SELECTORS = [
-    'h1', 'h2', '.product-title', '.product-name', '.title', 
+    'h1', 'h2', '.product-title', '.product-name', '.title', \
     '.name', '[class*="title"]', '[class*="name"]'
 ]
 
 DESC_SELECTORS = [
-    '.description', '.product-description', '.product-info',
+    '.description', '.product-description', '.product-info', \
     '.details', '.content', '[class*="description"]'
 ]
 
-DESIGNER_SELECTORS = [
-    '.designer', '.brand', '.author', '.by', 
-    '[class*="designer"]', '[class*="brand"]'
+# DESIGNER_SELECTORS = [
+#     '.designer', '.brand', '.author', '.by', \
+#     '[class*="designer"]', '[class*="brand"]'
+# ]
+
+DESIGNER_SELECTORS = ['.designer']
+
+# Extract images with better handling for lazy-loaded images
+IMAGE_SELECTORS = [
+    'img[src]', 'img[data-src]', 'img[data-lazy]', 'img[data-original]',
+    '.product-image img', '.gallery img', '.image-container img',
+    '[class*="image"] img', '[class*="photo"] img'
 ]
+
+INVALID_IMAGE = ['.svg', 'icon', 'logo', '.gif']
