@@ -4,7 +4,7 @@ from typing import List, Dict
 from googlesearch import search
 from urllib.parse import urlparse
 from logs.loggers import loggerSetup, logger
-from config.constant import ALLOWED_EXTENSIONS
+from config.constant import ALLOWED_EXTENSIONS, INVALID_IMAGE
 
 # Set up logs
 loggerSetup()
@@ -122,22 +122,80 @@ def logSummary(results: List) -> str:
         Returns:
             str: Summary of scraping results
     """
-    logger.info("\n" + "="*60)
+    logger.info("="*60)
     logger.info("FURNITURE SCRAPING SUMMARY")
     logger.info("="*60)
 
     summary = ""
-        
+    summary = "="*60
+    summary += "\nFURNITURE SCRAPING SUMMARY\n"
+    summary += "="*60
+    
     df = pd.DataFrame(results)
     categories = df['category'].unique()
         
     for cat in categories:            
         count = len(df[df['category'] == cat])
-        summary += f"\n  {cat}: {count} products"
+        summary += f"\n{cat}: {count} products"
         logger.info(f"  {cat}: {count} products")
         
-    summary += f"\nTOTAL: {len(results)} products"
+    summary += f"\nTOTAL: {len(results)} products\n"
     logger.info(f"TOTAL: {len(results)} products")
     logger.info("="*60)
+    summary += "="*60
 
     return summary
+
+def isValidImageSrc(src: str, product_name: str) -> bool:
+    """
+        Check if the source URL is valid.
+
+        Args:
+            src (str): The image source URL to validate.
+            product_name (str): The product name to which the image belongs.
+    
+        Returns:
+            bool: True if the image source is valid, False if it contains any disallowed keywords.
+    """
+    for text in INVALID_IMAGE:
+        if text in src.lower() or product_name.lower() not in src.lower():
+            return False
+        
+    return True
+
+def isProductImage(self, src: str, alt: str) -> bool:
+    """
+        Determine if an image is likely a product image based on its source URL or alt text.
+            
+        Args:
+            src (str): The source URL of the image.
+            alt (str): The alt text associated with the image.
+
+        Returns:
+            bool: True if the image appears to be a product image, False otherwise.
+    """
+    src_lower = src.lower()
+    alt_lower = alt.lower()
+        
+    # Exclude non-product images
+    exclude_patterns = [
+        'logo', 'icon', 'arrow', 'button', 'social', 'banner',
+        'background', 'texture', 'pattern', 'spacer', 'pixel'
+    ]
+        
+    for pattern in exclude_patterns:
+        if pattern in src_lower or pattern in alt_lower:
+            return False
+        
+    # Include product-related images
+    include_patterns = [
+        'product', 'furniture', 'chair', 'table', 'sofa', 'bed',
+        'gallery', 'detail', 'view', 'angle', 'photo'
+    ]
+        
+    for pattern in include_patterns:
+        if pattern in src_lower or pattern in alt_lower:
+            return True
+        
+    # If no clear indicators, include if it's a reasonable image format
+    return src_lower.endswith(('.jpg', '.jpeg', '.png', '.webp'))
