@@ -1,0 +1,61 @@
+2025-09-04 13:35:59 - INFO -  * Detected change in '/Users/aditya/Documents/Company/Beyond & More/Project/furniture-scraper-pipeline-main/backend/main.py', reloading
+2025-09-04 13:35:59 - INFO -  * Restarting with stat
+2025-09-04 13:36:02 - INFO - Starting Flask server...
+2025-09-04 13:36:02 - INFO - Frontend should be accessible at: http://localhost:8000
+2025-09-04 13:36:02 - INFO - API endpoints:
+2025-09-04 13:36:02 - INFO -   GET  / - Home page
+2025-09-04 13:36:02 - INFO -   POST /process - Process form data
+2025-09-04 13:36:02 - WARNING -  * Debugger is active!
+2025-09-04 13:36:02 - INFO -  * Debugger PIN: 619-824-109
+2025-09-04 13:36:07 - INFO - Processing single input: Porro
+2025-09-04 13:36:07 - INFO - Searching for official website of company: Porro
+2025-09-04 13:36:07 - INFO - 127.0.0.1 - - [04/Sep/2025 13:36:07] "GET /logs HTTP/1.1" 200 -
+2025-09-04 13:36:09 - INFO - Official website found: https://www.porro.com/
+2025-09-04 13:36:09 - INFO - 127.0.0.1 - - [04/Sep/2025 13:36:09] "POST /process HTTP/1.1" 200 -
+2025-09-04 13:36:12 - INFO - Processing single input: Porro
+2025-09-04 13:36:12 - INFO - 127.0.0.1 - - [04/Sep/2025 13:36:12] "GET /logs HTTP/1.1" 200 -
+2025-09-04 13:36:12 - INFO - Searching for official website of company: Porro
+2025-09-04 13:36:14 - INFO - Official website found: https://www.porro.com/
+2025-09-04 13:36:14 - INFO - 127.0.0.1 - - [04/Sep/2025 13:36:14] "POST /process HTTP/1.1" 200 -
+2025-09-04 13:36:23 - INFO -  * Detected change in '/Users/aditya/Documents/Company/Beyond & More/Project/furniture-scraper-pipeline-main/backend/main.py', reloading
+2025-09-04 13:36:23 - INFO -  * Restarting with stat
+2025-09-04 13:36:25 - INFO - Starting Flask server...
+2025-09-04 13:36:25 - INFO - Frontend should be accessible at: http://localhost:8000
+2025-09-04 13:36:25 - INFO - API endpoints:
+2025-09-04 13:36:25 - INFO -   GET  / - Home page
+2025-09-04 13:36:25 - INFO -   POST /process - Process form data
+2025-09-04 13:36:25 - WARNING -  * Debugger is active!
+2025-09-04 13:36:25 - INFO -  * Debugger PIN: 619-824-109
+2025-09-04 13:36:25 - INFO - 127.0.0.1 - - [04/Sep/2025 13:36:25] "GET /logs HTTP/1.1" 200 -
+2025-09-04 13:36:25 - INFO - Processing single input: Porro
+2025-09-04 13:36:25 - INFO - Searching for official website of company: Porro
+2025-09-04 13:36:27 - INFO - Official website found: https://www.porro.com/
+2025-09-04 13:36:27 - INFO - 127.0.0.1 - - [04/Sep/2025 13:36:27] "POST /process HTTP/1.1" 200 -
+2025-09-04 13:36:35 - INFO - Processing single input: Porro
+2025-09-04 13:36:35 - INFO - 127.0.0.1 - - [04/Sep/2025 13:36:35] "GET /logs HTTP/1.1" 200 -
+2025-09-04 13:36:35 - INFO - Searching for official website of company: Porro
+2025-09-04 13:36:37 - INFO - Official website found: https://www.porro.com/
+2025-09-04 13:36:37 - INFO - 127.0.0.1 - - [04/Sep/2025 13:36:37] "POST /process HTTP/1.1" 200 -
+2025-09-04 13:36:50 - INFO - Starting Flask server...
+2025-09-04 13:36:50 - INFO - Frontend should be accessible at: http://localhost:8000
+2025-09-04 13:36:50 - INFO - API endpoints:
+2025-09-04 13:36:50 - INFO -   GET  / - Home page
+2025-09-04 13:36:50 - INFO -   POST /process - Process form data
+2025-09-04 13:36:50 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://192.168.1.21:8000
+2025-09-04 13:36:50 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-04 13:36:50 - INFO -  * Restarting with stat
+2025-09-04 13:36:52 - INFO - Starting Flask server...
+2025-09-04 13:36:52 - INFO - Frontend should be accessible at: http://localhost:8000
+2025-09-04 13:36:52 - INFO - API endpoints:
+2025-09-04 13:36:52 - INFO -   GET  / - Home page
+2025-09-04 13:36:52 - INFO -   POST /process - Process form data
+2025-09-04 13:36:52 - WARNING -  * Debugger is active!
+2025-09-04 13:36:52 - INFO -  * Debugger PIN: 619-824-109
+2025-09-04 13:36:53 - INFO - 127.0.0.1 - - [04/Sep/2025 13:36:53] "GET /logs HTTP/1.1" 200 -
+2025-09-04 13:36:53 - INFO - Processing single input: Porro
+2025-09-04 13:36:53 - INFO - Searching for official website of company: Porro
+2025-09-04 13:36:56 - INFO - Official website found: https://www.porro.com/
+2025-09-04 13:36:56 - INFO - 127.0.0.1 - - [04/Sep/2025 13:36:56] "POST /process HTTP/1.1" 200 -

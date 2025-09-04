@@ -71,6 +71,33 @@
                         @change="handleFileUpload"
                         accept=".txt,.csv,.json"
                     />
+
+                    <!-- Categories field -->
+                    <label style="margin-top: 10px;">Select Furniture categories:</label>
+                    <div class="dropdown">
+                        <div class="dropdown-toggle" @click="showCategories = !showCategories">
+                            <span v-if="categories.length === 0">Select categories...</span>
+                            <span v-else>
+                                <template v-for="opt in categoriesOptions" :key="opt.value">
+                                    <span v-if="categories.includes(opt.value)" class="tag">{{ opt.label }}</span>
+                                </template>
+                            </span>
+                            <span class="arrow" :class="{ open: showCategories }"></span>
+                        </div>
+                        <div class="dropdown-menu" v-if="showCategories">
+                            <div v-for="option in categoriesOptions" :key="option.value" class="dropdown-item">
+                                <label class="checkbox-chip">
+                                    <input 
+                                        type="checkbox"
+                                        :value="option.value"
+                                        v-model="categories"
+                                    >
+                                    <span class="checkmark"></span>
+                                    {{ option.label }}
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <button type="submit" class="submit-btn" :disabled="!isFormValid || loading">
@@ -78,7 +105,25 @@
                 </button>
             </form>
             
-            <!-- Log field -->
+            <!-- Real-time Logs Container -->
+            <div class="logs-container" v-if="showLogs">
+                <div class="logs-header">
+                    <span>Logs</span>
+                </div>
+                <div class="logs-content" ref="logsContent" :class="{ 'auto-scroll': autoScroll }">
+                    <div 
+                        v-for="(log, index) in logs" 
+                        :key="index" 
+                        class="log-entry"
+                        :class="log.level"
+                    >
+                        <span class="log-timestamp">{{ log.timestamp }}</span>
+                        <span>{{ log.message }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Final Result field -->
             <div class="result-container" v-if="result || error">
                 <div class="result-title">Result:</div>
                 <div v-if="loading" class="loading">Processing your request...</div>
@@ -90,7 +135,7 @@
 
     <script>
         // Import
-        const { createApp, ref, computed } = Vue;
+        const { createApp, ref, computed, nextTick } = Vue;
 
         createApp({
             setup() {
@@ -100,14 +145,38 @@
                 const multipleInputValue = ref('');
                 const multipleInputs = ref([]);
                 const selectedFile = ref(null);
+                const categories = ref([]);
                 const result = ref('');
                 const error = ref('');
                 const loading = ref(false);
+                const showCategories = ref(false);
+                const showLogs = ref(false);
+
+                // Logs related variables
+                const logs = ref([]);
+                const eventSource = ref(null);
+                const isLogsConnected = ref(false);
+                const autoScroll = ref(true);
+                const logsContent = ref(null);
+
+                // Furniture categories
+                const categoriesOptions = ref([
+                    { value: "sofa", label: "Sofas"},
+                    { value: "armchair", label: "Armchairs"},
+                    { value: "pouf", label: "Pouffe"},
+                    { value: "ottoman", label: "Ottoman"},
+                    { value: "bench", label: "Benches"},
+                    { value: "table", label: "Tables"},
+                    { value: "console", label: "Console"},
+                    { value: "stool", label: "Stools"},
+                ]);
 
                 // validating input field
                 const isFormValid = computed(() => {
                     if (!inputType.value) return false;
                     
+                    if (categories.value.length == 0) return false;
+
                     switch (inputType.value) {
                         case 'single':
                             return singleInput.value.trim() !== '';
@@ -120,11 +189,60 @@
                     }
                 });
 
+                // Initialize real-time logs connection
+                const initializeLogsConnection = () => {
+                    if (eventSource.value) {
+                        eventSource.value.close();
+                    }
+
+                    eventSource.value = new EventSource('http://localhost:8000/logs');
+                    
+                    eventSource.value.onopen = () => {
+                        isLogsConnected.value = true;
+                        addLogEntry('Connected to real-time logs', 'success');
+                    };
+
+                    eventSource.value.onmessage = (event) => {
+                        const logData = JSON.parse(event.data);
+                        addLogEntry(logData.message, logData.level);
+                    };
+
+                    eventSource.value.onerror = () => {
+                        isLogsConnected.value = false;
+                        addLogEntry('Lost connection to logs server', 'error');
+                    };
+                };
+
+                // Add log entry
+                const addLogEntry = (message, level = 'info') => {
+                    const timestamp = new Date().toLocaleTimeString();
+                    logs.value.push({
+                        message,
+                        level,
+                        timestamp
+                    });
+
+                    // Auto scroll to bottom if enabled
+                    if (autoScroll.value) {
+                        nextTick(() => {
+                            if (logsContent.value) {
+                                logsContent.value.scrollTop = logsContent.value.scrollHeight;
+                            }
+                        });
+                    }
+                };
+
+                // Clear logs
+                const clearLogs = () => {
+                    logs.value = [];
+                };
+
                 // reset to initial state
                 const resetInput = () => {
                     singleInput.value = '';
                     multipleInputValue.value = '';
                     multipleInputs.value = [];
+                    categories.value = [];
                     selectedFile.value = null;
                     result.value = '';
                     error.value = '';
@@ -163,6 +281,15 @@
                 const submitForm = async () => {
                     if (!isFormValid.value) return;
 
+                    // Show logs field
+                    showLogs.value = true;
+                    
+                    // Clear logs
+                    logs.value = [];
+
+                    // Start logs
+                    initializeLogsConnection();
+
                     loading.value = true;
                     error.value = '';
                     result.value = '';
@@ -184,7 +311,9 @@
                                 break;
                         }
 
-                        const response = await fetch('http://localhost:5000/process', {
+                        formData.append('categories', JSON.stringify(categories.value));
+
+                        const response = await fetch('http://localhost:8000/process', {
                             method: 'POST',
                             body: formData
                         });
@@ -201,9 +330,22 @@
                             error.value = data.error || 'An error occurred while processing your request.';
                         }
                     } catch (err) {
-                        error.value = `Connection error: ${err.message}. Make sure the Flask server is running on port 5000.`;
+                        error.value = `Connection error: ${err.message}. Make sure the Flask server is running on port 8000.`;
                     } finally {
                         loading.value = false;
+
+                        // Stop logs connection
+                        if (eventSource.value) {
+                            eventSource.value.close();
+                            isLogsConnected.value = false;
+                        }
+                    }
+                };
+
+                // Cleanup when component unmounts
+                const beforeUnmount = () => {
+                    if (eventSource.value) {
+                        eventSource.value.close();
                     }
                 };
 
@@ -222,7 +364,16 @@
                     removeMultipleItem,
                     handleFileUpload,
                     handleFormEnter,
-                    submitForm
+                    submitForm,
+                    categoriesOptions,
+                    categories,
+                    showCategories,
+                    logs,
+                    isLogsConnected,
+                    autoScroll,
+                    logsContent,
+                    clearLogs,
+                    showLogs,
                 };
             }
         }).mount('#app');

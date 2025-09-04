@@ -1,8 +1,13 @@
 # Import necessary libraries
 import os
 import asyncio
+import json
+import logging
+from queue import Queue
 from flask_cors import CORS
-from flask import Flask, request, jsonify
+from threading import Thread
+from datetime import datetime
+from flask import Flask, request, jsonify, Response
 from logs.loggers import loggerSetup, logger
 from services.scraper import FurnitureScrapingPipeline
 from config.constant import UPLOAD_FOLDER, CATEGORIES, SCRAPED_FOLDER
@@ -22,12 +27,54 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(SCRAPED_FOLDER, exist_ok=True)
 
-async def processSingleInput(data: str) -> str:
+# Global log queue for real-time streaming
+log_queue = Queue()
+
+class SSELogHandler(logging.Handler):
+    """Custom logging handler that sends logs to the SSE queue"""
+    
+    def emit(self, record):
+        try:
+            log_entry = {
+                'message': self.format(record),
+                'level': self.get_log_level(record.levelno),
+                'timestamp': datetime.now().strftime('%H:%M:%S')
+            }
+            log_queue.put(log_entry)
+        except Exception:
+            self.handleError(record)
+    
+    def get_log_level(self, levelno):
+        if levelno >= logging.ERROR:
+            return 'error'
+        elif levelno >= logging.WARNING:
+            return 'warning'
+        elif levelno >= logging.INFO:
+            return 'info'
+        else:
+            return 'info'
+        
+# Add SSE handler to logger
+sse_handler = SSELogHandler()
+sse_handler.setFormatter(logging.Formatter('%(message)s'))
+logger.addHandler(sse_handler)
+
+def sendLogToFrontend(message, level='info'):
+    """Helper function to send custom log messages to frontend"""
+    log_entry = {
+        'message': message,
+        'level': level,
+        'timestamp': datetime.now().strftime('%H:%M:%S')
+    }
+    log_queue.put(log_entry)
+
+async def processSingleInput(data: str, furniture_categories: list[str]) -> str:
     """
         Process a single input which can be a brand name or a URL.
         
         Args:
             data (str): The input data, which can be a brand name or a URL.
+            furniture_categories (list[str]): Contains the list of furniture categories.
             
         Returns:
             str: Processed result or error message.
@@ -76,7 +123,7 @@ async def processSingleInput(data: str) -> str:
         
         res = await pipeline.scrapeAnyWebsite(
             site_url, 
-            categories=CATEGORIES
+            categories=furniture_categories
         )
         logger.info(f"Category information extracted for {site_url}")
 
@@ -104,8 +151,32 @@ def home():
         }
     })
 
+@app.route('/logs')
+def streamLogs():
+    """Server-Sent Events endpoint for real-time logs"""
+    def generate():
+        try:
+            while True:
+                try:
+                    # Get log entry from queue (blocking with timeout)
+                    log_entry = log_queue.get(timeout=30)
+                    yield f"data: {json.dumps(log_entry)}\n\n"
+                except:
+                    # Send heartbeat to keep connection alive
+                    yield f"data: {json.dumps({'message': '', 'level': 'heartbeat', 'timestamp': ''})}\n\n"
+        except GeneratorExit:
+            # Client disconnected, safely exit generator
+            print("Client disconnected from logs stream")
+            return
+    
+    return Response(generate(), mimetype='text/event-stream', headers={
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+    })
+
 @app.route('/process', methods=['POST'])
-def process_data():
+def processData():
     """Main processing endpoint"""
     try:
         input_type = request.form.get('inputType')
@@ -121,13 +192,15 @@ def process_data():
         # Process based on input type
         if input_type == 'single':
             data = request.form.get('data')
+            funiture_categories = request.form.get('categories')
             if not data:
                 logger.error("Empty data provided for single input processing.")
                 return jsonify({
                     "success": False,
                     "error": "Single input data is required"
                 }), 400
-            result = asyncio.run(processSingleInput(data))
+            sendLogToFrontend("Processing started", "info")
+            result = asyncio.run(processSingleInput(data, funiture_categories))
                         
         else:
             return jsonify({
@@ -149,9 +222,9 @@ def process_data():
     
 if __name__ == '__main__':
     logger.info("Starting Flask server...")
-    logger.info("Frontend should be accessible at: http://localhost:5000")
+    logger.info("Frontend should be accessible at: http://localhost:8000")
     logger.info("API endpoints:")
     logger.info("  GET  / - Home page")
     logger.info("  POST /process - Process form data")
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=8000)
