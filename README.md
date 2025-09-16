@@ -9,10 +9,10 @@ A smart, adaptable and AI-driven web scraper for extracting furniture product in
 
 ## Features
 
-- **Flexible Input Options:** Accepts brand names as:
+- **Flexible Input Options:** Accepts brand URL as:
     
-    - A single string (e.g. "Casa Magna" or "https://www.casamagna.eu")
-    - A list of brand names
+    - A single string (e.g. "https://www.casamagna.eu")
+    - A list of brand urls
     - A file input (`.csv`, `.xlsx`, or `.json`)
 
 - **Universal Compatibility:** Works with any furniture website without manual configuration.
@@ -30,7 +30,7 @@ A smart, adaptable and AI-driven web scraper for extracting furniture product in
 ## Architecture
 
 ```sh
-    Frontend (Vue.js) -> Backend (Flask) -> Scraping Pipeline (Python)
+Frontend (Vue.js) -> Backend (Flask) -> Scraping Pipeline (Python)
 ```
 
 - **Frontend:** `index.html` - Vue.js interface for inputting websites and viewing results.
@@ -106,18 +106,18 @@ The scraper accepts various forms of inputs to start the scraping process:
 
 - **Single Brand Name or Official URL**
 
-    Provide a single brand name or official website url:
+    Provide a official website url:
 
     ```python
-    "Casa Magna" or "https://www.casamagna.eu"
+    "https://www.casamagna.eu"
     ```
 
-- **Multiple Brand Names or URLs**
+- **Multiple Brand URLs**
 
-    A list of brand names or official URLs can be passed to process multiple websites
+    A list of brand official URLs can be passed to process multiple websites
 
     ```python
-    ["Cassina", "Casa Magna"] or ["https://www.cassina.com/en", "https://www.casamagna.eu"]
+    ["https://www.cassina.com/en", "https://www.casamagna.eu"]
     ```
 
 - **File Input**
@@ -137,18 +137,10 @@ The scraper supports multiple file formats for batch input. Each file should cle
 
 1. **CSV / Excel (`.csv`, `.xlsx`)**
 
-- Must contain **one of the following column headers**:
-    - `brand` -> when input is a company name (e.g., `"Casa Magna"`)
+- Must contain:
     - `url` -> when input is the official website (e.g., `"https://www.casamagna.eu"`)
 
     Example (`brands.csv` or `brands.xlsx`)
-
-    | brand |
-    | :- |
-    | Cassina |
-    | Casa Magna |
-
-    or
 
     | url |
     | :- |
@@ -157,15 +149,7 @@ The scraper supports multiple file formats for batch input. Each file should cle
 
 2. **JSON (`.json`)** 
 
-- Must contain a signle top-level key: either `brand` or `url`.
-
-**Example using brand names**:
-
-```json
-    {
-        "brand": ["Cassina", "Casa Magna"]
-    }
-```
+- Must contain a signle top-level key: `url`.
 
 **Example using URLs**:
 
@@ -174,11 +158,6 @@ The scraper supports multiple file formats for batch input. Each file should cle
         "url": ["https://www.cassina.com/en", "https://www.casamagna.eu"]
     }
 ```
-
-## How to Choose?
-
-- Use `brand` when you want the scraper to **automatically discover** the website.
-- Use `url` when you **already have** the official website(s) and want to skip discovery.
 
 ## Data Validation
 
@@ -198,14 +177,3 @@ If you have an existing pricing sheet, you can merge it with the scraped data:
 - Merging is done on **Product Name** and **Furniture Type**
 - A fuzzy match is applied to the `Product Name` and `Furniture Type`
 - You can configure whether price data or scraped data takes precedence during merge
-
-## Logging
-
-The scraper generates logs during processing:
-
-- **Logs include**:
-
-    - Validation 
-    - Merging Files
-
-- **Log Files**: Logs are saved to `logs/scraper_log.txt`
