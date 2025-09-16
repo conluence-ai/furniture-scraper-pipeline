@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div id="app">
@@ -20,7 +21,7 @@
 
                 <!-- Input Type -->
                 <div class="form-group">
-                    <label for="inputType">Select Input Type:</label>
+                    <label for="inputType">Select Input Type<sup>*</sup>:</label>
                     <select id="inputType" v-model="inputType" @change="resetInput">
                         <option value="">Choose an option...</option>
                         <option value="single">Single Brand Input</option>
@@ -32,9 +33,9 @@
                 <!-- Input Field based on Input Type -->
                 <div class="form-group" v-if="inputType">
                     <label for="dataInput">
-                        {{ inputType === 'single' ? 'Enter Brand Name:' : 
-                           inputType === 'multiple' ? 'Enter Items (Press Enter to add):' : 
-                           'Select File:' }}
+                        {{ inputType === 'single' ? 'Enter Brand URL' : 
+                           inputType === 'multiple' ? 'Enter Items (Press Enter to add)' : 
+                           'Select File' }}<sup>*</sup>:
                     </label>
                     
                     <!-- Single Input -->
@@ -43,7 +44,7 @@
                         id="dataInput"
                         type="text" 
                         v-model="singleInput"
-                        placeholder="Enter brand name..."
+                        placeholder="Enter brand url..."
                     />
                     
                     <!-- Multiple Input -->
@@ -73,7 +74,7 @@
                     />
 
                     <!-- Categories field -->
-                    <label style="margin-top: 10px;">Select Furniture categories:</label>
+                    <label style="margin-top: 10px;">Select Furniture categories<sup>*</sup>:</label>
                     <div class="dropdown">
                         <div class="dropdown-toggle" @click="showCategories = !showCategories">
                             <span v-if="categories.length === 0">Select categories...</span>
@@ -100,6 +101,36 @@
                     </div>
                 </div>
                 
+                <!-- Price Listing File Upload (Optional) -->
+                <div class="form-group">
+                    <label>
+                        Upload Price listing file (.csv, .xlsx)
+                    </label>
+                    <div class="file-upload-container">
+                        <div class="file-upload-wrapper" :class="{ 'has-file': priceListingFile }">
+                            <input 
+                                type="file" 
+                                id="priceListingFile"
+                                class="file-upload-input"
+                                @change="handlePriceFileUpload"
+                                accept=".csv,.xlsx,.xls"
+                            />
+                            <label for="priceListingFile" class="file-upload-label" v-if="!priceListingFile">
+                                <div class="file-upload-icon">📊</div>
+                                <div class="file-upload-text">
+                                    <strong>Click to upload</strong> or drag and drop<br>
+                                    <div class="file-upload-formats">CSV, XLSX files supported</div>
+                                </div>
+                            </label>
+                        </div>
+                        <div v-if="priceListingFile" class="file-selected">
+                            <span class="file-selected-icon">📄</span>
+                            <span>{{ priceListingFile.name }}</span>
+                            <button type="button" class="remove-file" @click="removePriceFile">×</button>
+                        </div>
+                    </div>
+                </div>
+
                 <button type="submit" class="submit-btn" :disabled="!isFormValid || loading">
                     {{ loading ? 'Processing...' : 'Start Scraping' }}
                 </button>
@@ -130,6 +161,18 @@
                 <div v-else-if="error" class="error">{{ error }}</div>
                 <pre v-else class="result-content">{{ result }}</pre>
             </div>
+
+            <!-- Download Buttons -->
+            <div class="download-buttons" v-if="(result || error) && !loading">
+                <button class="download-btn download-btn-primary" @click="downloadScrapedFile">
+                    <i class="fas fa-file-alt download-icon"></i>
+                    Scraped File
+                </button>
+                <button class="download-btn download-btn-secondary" @click="downloadMergedFile" disabled>
+                    <i class="fas fa-file-excel download-icon"></i>
+                    Merged File
+                </button>
+            </div>
         </div>
     </div>
 
@@ -144,6 +187,7 @@
                 const singleInput = ref('');
                 const multipleInputValue = ref('');
                 const multipleInputs = ref([]);
+                const priceListingFile = ref(null);
                 const selectedFile = ref(null);
                 const categories = ref([]);
                 const result = ref('');
@@ -195,7 +239,7 @@
                         eventSource.value.close();
                     }
 
-                    eventSource.value = new EventSource('http://localhost:8000/logs');
+                    eventSource.value = new EventSource('http://localhost:8001/logs');
                     
                     eventSource.value.onopen = () => {
                         isLogsConnected.value = true;
@@ -246,6 +290,7 @@
                     selectedFile.value = null;
                     result.value = '';
                     error.value = '';
+                    priceListingFile.value = null;
                 };
 
                 // add multiple brand names
@@ -267,6 +312,17 @@
                     selectedFile.value = event.target.files[0];
                 };
 
+                // Handle price listing file upload
+                const handlePriceFileUpload = (event) => {
+                    priceListingFile.value = event.target.files[0];
+                };
+
+                // Remove price listing file
+                const removePriceFile = () => {
+                    priceListingFile.value = null;
+                    document.getElementById('priceListingFile').value = '';
+                };
+
                 // press enter key to add input and prevents from form submission
                 const handleFormEnter = (event) => {
                     // Only allow Enter for multiple input field
@@ -275,6 +331,50 @@
                     }
                     // Prevent Enter from submitting form for all other cases
                     event.preventDefault();
+                };
+
+                // Download merged file
+                const downloadMergedFile = async () => {
+                    try {
+                        const response = await fetch('http://localhost:8001/download/merged');
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'merged_data.csv';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                        } else {
+                            alert('Error downloading merged file');
+                        }
+                    } catch (err) {
+                        alert('Error downloading merged file: ' + err.message);
+                    }
+                };
+
+                // Download scraped file
+                const downloadScrapedFile = async () => {
+                    try {
+                        const response = await fetch('http://localhost:8001/download/scraped');
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'scraped_data.csv';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                        } else {
+                            alert('Error downloading scraped file');
+                        }
+                    } catch (err) {
+                        alert('Error downloading scraped file: ' + err.message);
+                    }
                 };
 
                 // form submission
@@ -313,7 +413,12 @@
 
                         formData.append('categories', JSON.stringify(categories.value));
 
-                        const response = await fetch('http://localhost:8000/process', {
+                        // Add price listing file if selected
+                        if (priceListingFile.value) {
+                            formData.append('priceListingFile', priceListingFile.value);
+                        }
+
+                        const response = await fetch('http://localhost:8001/process', {
                             method: 'POST',
                             body: formData
                         });
@@ -330,7 +435,7 @@
                             error.value = data.error || 'An error occurred while processing your request.';
                         }
                     } catch (err) {
-                        error.value = `Connection error: ${err.message}. Make sure the Flask server is running on port 8000.`;
+                        error.value = `Connection error: ${err.message}. Make sure the Flask server is running on port 8001.`;
                     } finally {
                         loading.value = false;
 
@@ -355,6 +460,7 @@
                     multipleInputValue,
                     multipleInputs,
                     selectedFile,
+                    priceListingFile,
                     result,
                     error,
                     loading,
@@ -362,6 +468,8 @@
                     resetInput,
                     addMultipleItem,
                     removeMultipleItem,
+                    handlePriceFileUpload,
+                    removePriceFile,
                     handleFileUpload,
                     handleFormEnter,
                     submitForm,
