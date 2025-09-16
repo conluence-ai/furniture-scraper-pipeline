@@ -7,17 +7,23 @@ from queue import Queue
 from flask_cors import CORS
 from threading import Thread
 from datetime import datetime
-from flask import Flask, request, jsonify, Response
-from logs.loggers import loggerSetup, logger
-from services.scraper import FurnitureScrapingPipeline
-from config.constant import UPLOAD_FOLDER, CATEGORIES, SCRAPED_FOLDER
-from utils.helpers import isValidUrl, getWebsiteName, searchOfficialWebsite, exportToExcel, logSummary
+from flask import Flask, request, jsonify, Response, send_from_directory, send_file
+from backend.services.scraper import FurnitureScrapingPipeline
+from backend.config.constant import UPLOAD_FOLDER, CATEGORIES, SCRAPED_FOLDER
+from backend.utils.helpers import isValidUrl, getWebsiteName, exportToExcel, logSummary
 
-# Set up logs
-loggerSetup()
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+
+# Create a logger for this module
+logger = logging.getLogger(__name__)
 
 # Initialize flask app
-app = Flask(__name__)
+app = Flask(__name__, static_folder="../frontend", static_url_path="/")
 CORS(app)  # Enable CORS for all routes
 
 # Configuration
@@ -57,7 +63,7 @@ class SSELogHandler(logging.Handler):
 # Add SSE handler to logger
 sse_handler = SSELogHandler()
 sse_handler.setFormatter(logging.Formatter('%(message)s'))
-logger.addHandler(sse_handler)
+logging.getLogger().addHandler(sse_handler) 
 
 def sendLogToFrontend(message, level='info'):
     """Helper function to send custom log messages to frontend"""
@@ -96,16 +102,6 @@ async def processSingleInput(data: str, furniture_categories: list[str]) -> str:
         
         result = f"Brand Name: {website_name.capitalize()}\n"
         result += f"Official Website: {site_url}\n"
-    else:
-        logger.info(f"Searching for official website of company: {brand_input}")
-
-        site_url = searchOfficialWebsite(brand_input)
-        website_name = getWebsiteName(site_url)
-        
-        logger.info(f"Official website found: {site_url}")
-        
-        result = f"Brand Name: {brand_input}\n"
-        result += f"Official Website: {site_url}\n"
 
     # If no URL found, return error
     if not site_url:
@@ -118,9 +114,19 @@ async def processSingleInput(data: str, furniture_categories: list[str]) -> str:
 
         # Initialize pipeline
         pipeline = FurnitureScrapingPipeline() # without AI
-        # openai_key = "openai-api-key"
-        # pipeline = FurnitureScrapingPipeline(openai_api_key=openai_key)  # with AI
-        
+        # # openai_key = "openai-api-key"
+        # # pipeline = FurnitureScrapingPipeline(openai_api_key=openai_key)  # with AI
+
+        # # Parse categories if it's a string
+        if furniture_categories:
+            try:
+                furniture_categories = json.loads(furniture_categories)
+            except json.JSONDecodeError:
+                # fallback: treat as single category string
+                furniture_categories = [furniture_categories]
+        else:
+            furniture_categories = []
+
         res = await pipeline.scrapeAnyWebsite(
             site_url, 
             categories=furniture_categories
@@ -139,17 +145,6 @@ async def processSingleInput(data: str, furniture_categories: list[str]) -> str:
 
     # Return brand info
     return result
-    
-@app.route('/', methods=['GET'])
-def home():
-    """Home route for testing"""
-    return jsonify({
-        "message": "Flask backend is running!",
-        "endpoints": {
-            "GET /": "This endpoint",
-            "POST /process": "Process form data"
-        }
-    })
 
 @app.route('/logs')
 def streamLogs():
@@ -199,6 +194,7 @@ def processData():
                     "success": False,
                     "error": "Single input data is required"
                 }), 400
+
             sendLogToFrontend("Processing started", "info")
             result = asyncio.run(processSingleInput(data, funiture_categories))
                         
@@ -219,12 +215,27 @@ def processData():
             "success": False,
             "error": f"Server error: {str(e)}"
         }), 500
-    
+
+@app.route("/download/scraped")
+def download_file():
+    print('dowanload filessssssș')
+    return send_file("/app/scraped_file/casamagna.xlsx", as_attachment=True)
+
+# Serve index.html
+@app.route("/")
+def serve_index():
+    return send_from_directory(os.path.join(app.root_path, "..", "frontend"), "index.html")
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint"""
+    return jsonify({"status": "healthy"}), 200
+
 if __name__ == '__main__':
     logger.info("Starting Flask server...")
-    logger.info("Frontend should be accessible at: http://localhost:8000")
+    logger.info("Frontend should be accessible at: http://localhost:8001")
     logger.info("API endpoints:")
     logger.info("  GET  / - Home page")
     logger.info("  POST /process - Process form data")
     
-    app.run(debug=True, host='0.0.0.0', port=8000)
+    app.run(debug=True, host='0.0.0.0', port=8001)

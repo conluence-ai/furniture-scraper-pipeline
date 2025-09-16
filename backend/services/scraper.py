@@ -1,7 +1,7 @@
 # Import necessary libraries
 from typing import List
-from config.product import Product
-from services.processor import UniversalFurnitureScraper
+from backend.config.product import Product
+from backend.services.processor import UniversalFurnitureScraper
 
 class FurnitureScrapingPipeline:
     """

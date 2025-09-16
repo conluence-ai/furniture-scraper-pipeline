@@ -1,13 +1,20 @@
 # Import necessary libraries
 import re
 import requests
+import logging
 from bs4 import BeautifulSoup
 from typing import Dict, List, Any
-from logs.loggers import loggerSetup, logger
-from config.constant import ANALYSIS, PAGE_FRAMEWORK, FURNITURE_INDICATORS
+from backend.config.constant import ANALYSIS, PAGE_FRAMEWORK, FURNITURE_INDICATORS
 
-# Set up logs
-loggerSetup()
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+
+# Create a logger for this module
+logger = logging.getLogger(__name__)
 
 class WebsiteAnalyzer:
     """Analyzes website structure and determines scraping strategy"""

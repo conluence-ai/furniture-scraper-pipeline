@@ -3,20 +3,28 @@ import re
 import time
 import asyncio
 import requests
+import logging
+from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from dataclasses import asdict
 from urllib.parse import urljoin
-from config.product import Product
+from backend.config.product import Product
 from typing import Dict, List, Optional
-from utils.helpers import isProductImage
-from logs.loggers import loggerSetup, logger
-from config.web_analyzer import WebsiteAnalyzer
-from config.content_extractor import AIContentExtractor
-from config.playwright_scraper import PlaywrightScraper
-from config.constant import CATEGORY_SELECTORS, FURNITURE_KEYWORDS, PRODUCT_RESULT, NAME_SELECTORS, DESC_SELECTORS, DESIGNER_SELECTORS, IMAGE_SELECTORS
+from backend.utils.helpers import isProductImage
+from backend.config.web_analyzer import WebsiteAnalyzer
+from backend.config.content_extractor import AIContentExtractor
+from backend.config.playwright_scraper import PlaywrightScraper
+from backend.config.constant import CATEGORY_SELECTORS, FURNITURE_KEYWORDS, PRODUCT_RESULT, NAME_SELECTORS, DESC_SELECTORS, DESIGNER_SELECTORS, IMAGE_SELECTORS
 
-# Set up logs
-loggerSetup()
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+
+# Create a logger for this module
+logger = logging.getLogger(__name__)
 
 # Global variables
 seen_links = set()
@@ -63,6 +71,7 @@ class UniversalFurnitureScraper:
         
         # Analyze website
         analysis = self.analyzer.analyzeWebsite(base_url)
+        print("Printing strategy analysis:", analysis)
         
         # Choose scraping strategy based on wesite complexity
         if analysis['requires_js']:
@@ -363,10 +372,12 @@ class UniversalFurnitureScraper:
                 List[Product]: A lists of Product objects scraped from each category
         """
         results = []
+        print("Printing we are inside requests strategy")
         
         try:
             # Find category URLs from the main page
             category_urls = self._discoverCategoryUrlsRequests(base_url, categories)
+            category_products = []
 
             # For each category, discover product URLs and scrape them
             for category_url in category_urls:
@@ -377,8 +388,6 @@ class UniversalFurnitureScraper:
                 for cat in categories:
                     if cat.lower() in category_url.lower():
                         category_name = cat
-
-                category_products = []
                 
                 # Get product URLs from this category page
                 product_urls = self._discoverProductUrlsRequests(category_url)
@@ -398,7 +407,7 @@ class UniversalFurnitureScraper:
 
                                 logger.info(f"Successfully scraped product: {product.productName}")
                         
-                        time.sleep(1)  # Rate limiting
+                        time.sleep(2)  # Rate limiting
                         
                     except Exception as e:
                         logger.error(f"Error processing product {product_url}: {e}")
@@ -412,7 +421,7 @@ class UniversalFurnitureScraper:
         
         return results
 
-    def _discoverCategoryUrlsRequests(self, base_url: str, categories: List[str] = None) -> Dict[str, str]:
+    def _discoverCategoryUrlsRequests(self, base_url: str, categories: List[str] = None) -> List[str]:
         """
             Discover category URLs from the main page using requests.
 
@@ -422,9 +431,11 @@ class UniversalFurnitureScraper:
                                     If None, all links may be considered.
 
             Returns:
-                Dict[str, str]: A dictionary mapping each found category to its corresponding URL.
+                List[str]: A list of URLs that match the specified categories.
         """
         category_urls = []
+        seen_links = set()
+        base_domain = urlparse(base_url).netloc.lower()
         
         try:
             response = self.session.get(base_url, timeout=10)
@@ -442,40 +453,42 @@ class UniversalFurnitureScraper:
                         if full_url and full_url not in seen_links:
                             seen_links.add(full_url)
                             found_links.append((full_url, text))
-                            logger.info(f"Category link found: {text} -> {full_url}")
-            
+
             if categories:
-                # Filter by requested categories
+                # Filter by requested categories - check URL and link text
                 for url, text in found_links:
+                    # Only consider URLs that belong to the same domain as base_url
+                    if base_domain not in url.lower():
+                        continue
+
                     for category in categories:
-                        if category.lower() in text or category.lower() in url.lower():
-                            category_urls.append(url)
+                        category_lower = category.lower()
+                        # Check if category appears in URL path or link text
+                        if (category_lower in url.lower() or 
+                            category_lower in text or
+                            # Handle plural/singular variations
+                            category_lower.rstrip('s') in url.lower() or
+                            (category_lower + 's') in url.lower()):
+                            
+                            # Avoid duplicates
+                            if url not in category_urls:
+                                category_urls.append(url)
                             break
             else:
                 # Auto-detect furniture categories
                 for url, text in found_links:
                     for keyword in FURNITURE_KEYWORDS:
                         if keyword in text or keyword in url.lower():
-                            # Use the keyword as category name
-                            category_name = keyword
-                            if text and len(text) < 50:  # Use link text if reasonable
-                                category_name = text.replace(' ', '_')
-                            category_urls.append(url)
+                            if url not in category_urls:
+                                category_urls.append(url)
                             break
-            
-            # If no specific categories found, use the main product links
-            if not category_urls:
-                for url, text in found_links:
-                    if any(word in url.lower() for word in ['product', 'collection', 'catalog']):
-                        category_urls.append(url)
             
             logger.info(f"Discovered {len(category_urls)} category URLs")
             return category_urls
             
         except Exception as e:
             logger.error(f"Error discovering categories from {base_url}: {e}")
-            return {'all': base_url}  # Fallback to base URL
-        
+            return [base_url]  # Fallback to base URL as list
 
     def _discoverProductUrlsRequests(self, base_url: str) -> List[str]:
         """
@@ -500,7 +513,9 @@ class UniversalFurnitureScraper:
                     text = link.get_text().strip().lower()
                     if href:
                         full_url = urljoin(base_url, href)
-                        if full_url and full_url not in seen_links:
+                        product_keywords = ["product/", "item", "shop"]
+
+                        if full_url and full_url not in seen_links and any(kw in full_url.lower() for kw in product_keywords):
                             seen_links.add(full_url)
                             product_urls.append(full_url)
                             logger.info(f"Product link found: {text} -> {full_url}")

@@ -1,12 +1,19 @@
 # Import necessary libraries
 from typing import List
+import logging
 from urllib.parse import urljoin
-from logs.loggers import loggerSetup, logger
 from playwright.async_api import async_playwright
-from config.constant import SELECTORS_TO_TRY, PRODUCT_SELECTORS, GENERIC_CONTENT_LINK
+from backend.config.constant import SELECTORS_TO_TRY, PRODUCT_SELECTORS, GENERIC_CONTENT_LINK
 
-# Set up logs
-loggerSetup()
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+
+# Create a logger for this module
+logger = logging.getLogger(__name__)
 
 class PlaywrightScraper:
     """Handles JavaScript-heavy websites using Playwright"""

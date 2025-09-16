@@ -342,7 +342,7 @@
                             const url = window.URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = 'merged_data.csv';
+                            a.download = 'merged_data.xlsx';
                             document.body.appendChild(a);
                             a.click();
                             document.body.removeChild(a);
@@ -364,7 +364,10 @@
                             const url = window.URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = 'scraped_data.csv';
+
+                            // Use proper extension
+                            a.download = 'casamagna.xlsx';
+
                             document.body.appendChild(a);
                             a.click();
                             document.body.removeChild(a);
@@ -482,6 +485,7 @@
                     logsContent,
                     clearLogs,
                     showLogs,
+                    downloadScrapedFile,
                 };
             }
         }).mount('#app');

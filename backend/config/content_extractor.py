@@ -6,14 +6,20 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from typing import Dict, Optional
 from transformers import pipeline
-from config.product import Product
-from utils.helpers import isValidImageSrc
-from logs.loggers import loggerSetup, logger
-from config.constant import PRODUCT_RESULT, NAME_SELECTORS, DESC_SELECTORS, DESIGNER_SELECTORS, CATEGORIES
+from backend.config.product import Product
+from backend.utils.helpers import isValidImageSrc
+import logging
+from backend.config.constant import PRODUCT_RESULT, NAME_SELECTORS, DESC_SELECTORS, DESIGNER_SELECTORS, CATEGORIES
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.StreamHandler()]
+)
 
-# Set up logs
-loggerSetup()
+# Create a logger for this module
+logger = logging.getLogger(__name__)
 
 class AIContentExtractor:
     """Uses AI to extract structured data from web pages"""

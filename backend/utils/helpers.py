@@ -1,13 +1,20 @@
 # Import necessary libraries
+import re
 import pandas as pd
+import logging
 from typing import List, Dict
-from googlesearch import search
-from urllib.parse import urlparse
-from logs.loggers import loggerSetup, logger
-from config.constant import ALLOWED_EXTENSIONS, INVALID_IMAGE
+from urllib.parse import urlparse, quote_plus
+from backend.config.constant import ALLOWED_EXTENSIONS, INVALID_IMAGE
 
-# Set up logs
-loggerSetup()
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+
+# Create a logger for this module
+logger = logging.getLogger(__name__)
 
 def allowedFile(filename: str) -> bool:
     """
@@ -37,32 +44,6 @@ def isValidUrl(url: str) -> bool:
 
     parsed_url = urlparse(url)
     return bool(parsed_url.scheme and parsed_url.netloc)
-
-def searchOfficialWebsite(company_name: str) -> str:
-    """
-        Search for the official website of a company using Google search.
-        
-        Args:
-            company_name (str): The name of the company to search for.
-            
-        Returns:
-            str: The URL of the official website if found, otherwise an empty string.
-    """
-    query = f"{company_name} official site"
-
-    try:
-        # Use the search function from googlesearch to find the official website
-        result_iterator = search(query, stop=1, pause=1)
-        results = list(result_iterator)
-
-        if results:
-            return results[0]
-
-        logger.warning(f"No official website found for {company_name}.")
-        return ""
-    except Exception as e:
-        logger.error(f"Error searching for {company_name}: {e}")
-        return ""
     
 def getWebsiteName(url: str) -> str:
     """
