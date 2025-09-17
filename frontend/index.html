@@ -239,7 +239,7 @@
                         eventSource.value.close();
                     }
 
-                    eventSource.value = new EventSource('http://localhost:8001/logs');
+                    eventSource.value = new EventSource('/logs');
                     
                     eventSource.value.onopen = () => {
                         isLogsConnected.value = true;
@@ -336,7 +336,7 @@
                 // Download merged file
                 const downloadMergedFile = async () => {
                     try {
-                        const response = await fetch('http://localhost:8001/download/merged');
+                        const response = await fetch('/download/merged');
                         if (response.ok) {
                             const blob = await response.blob();
                             const url = window.URL.createObjectURL(blob);
@@ -358,7 +358,7 @@
                 // Download scraped file
                 const downloadScrapedFile = async () => {
                     try {
-                        const response = await fetch('http://localhost:8001/download/scraped');
+                        const response = await fetch('/download/scraped');
                         if (response.ok) {
                             const blob = await response.blob();
                             const url = window.URL.createObjectURL(blob);
@@ -421,7 +421,7 @@
                             formData.append('priceListingFile', priceListingFile.value);
                         }
 
-                        const response = await fetch('http://localhost:8001/process', {
+                        const response = await fetch('/process', {
                             method: 'POST',
                             body: formData
                         });
