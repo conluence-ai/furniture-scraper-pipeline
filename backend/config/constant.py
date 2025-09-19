@@ -19,13 +19,28 @@ FURNITURE_INDICATORS = [
     'model', 'variant', 'sku', 'code'
 ]
 
-# Enhanced selectors for category links
+# Selectors to fetch category links
 CATEGORY_SELECTORS = [
-    'a[href*="category"]', 'a[href*="collection"]', 'a[href*="products"]', \
-    'a[href*="sofa"]', 'a[href*="armchair"]', '.category a', '.collection a', \
-    '.product-category a', '.nav a', '.menu a', '.navigation a', \
-    'a[class*="category"]', 'a[class*="collection"]', 'a[href*="product"]'
+    'a[href*="category"]', 'a[href*="collection"]', 'a[href*="products"]',
+    'a[href*="prodotto"]', 'a[href*="collezione"]', 'a[href*="divani"]',
+    'a[href*="poltrone"]', 'a[href*="pouf"]', 'a[href*="sgabello"]',
+    'a[href*="panca"]', 'a[href*="tavolo"]', 'a[href*="console"]',
+    '.category a', '.collection a', '.product-category a', '.nav a',
+    '.menu a', '.navigation a', 'a[class*="category"]', 'a[class*="collection"]',
+    'a[href*="product"]', 'a[href*="prodotto"]', 'li a'
 ]
+
+# Mapping categories
+CATEGORY_SYNONYMS = {
+    "sofa": ["sofa", "sofas", "divano", "divani"],
+    "armchair": ["armchair", "armchairs", "poltrona", "poltrone"],
+    "pouf": ["pouf", "pouffe", "ottoman", "ottomans"],
+    "stool": ["stool", "stools", "sgabello", "sgabelli"],
+    "bench": ["bench", "benches", "panca", "panche"],
+    "table": ["table", "tables", "tavolo", "tavoli"],
+    "console": ["console", "consoles"],
+    "ottoman": ["ottoman", "ottomans", "pouf", "pouffe"]
+}
 
 # Filter links based on requested categories or furniture keywords
 FURNITURE_KEYWORDS = [

@@ -10,11 +10,24 @@ from dataclasses import asdict
 from urllib.parse import urljoin
 from backend.config.product import Product
 from typing import Dict, List, Optional
+
+# Import local module
 from backend.utils.helpers import isProductImage
 from backend.config.web_analyzer import WebsiteAnalyzer
 from backend.config.content_extractor import AIContentExtractor
 from backend.config.playwright_scraper import PlaywrightScraper
-from backend.config.constant import CATEGORY_SELECTORS, FURNITURE_KEYWORDS, PRODUCT_RESULT, NAME_SELECTORS, DESC_SELECTORS, DESIGNER_SELECTORS, IMAGE_SELECTORS
+
+# Import constant
+from backend.config.constant import (
+    CATEGORY_SELECTORS,
+    CATEGORY_SYNONYMS,
+    FURNITURE_KEYWORDS,
+    PRODUCT_RESULT,
+    NAME_SELECTORS,
+    DESC_SELECTORS,
+    DESIGNER_SELECTORS,
+    IMAGE_SELECTORS
+)
 
 # Configure logging
 logging.basicConfig(
@@ -71,7 +84,6 @@ class UniversalFurnitureScraper:
         
         # Analyze website
         analysis = self.analyzer.analyzeWebsite(base_url)
-        print("Printing strategy analysis:", analysis)
         
         # Choose scraping strategy based on wesite complexity
         if analysis['requires_js']:
@@ -372,26 +384,20 @@ class UniversalFurnitureScraper:
                 List[Product]: A lists of Product objects scraped from each category
         """
         results = []
-        print("Printing we are inside requests strategy")
         
         try:
-            # Find category URLs from the main page
+            # Find category URLs from the main page based on selected categories
             category_urls = self._discoverCategoryUrlsRequests(base_url, categories)
+            print(category_urls)
             category_products = []
 
             # For each category, discover product URLs and scrape them
-            for category_url in category_urls:
-                logger.info(f"Processing category: {category_url}")
-                
-                category_name = ""
-
-                for cat in categories:
-                    if cat.lower() in category_url.lower():
-                        category_name = cat
+            for cat, url in category_urls.items():
+                logger.info(f"Processing category '{cat}' at URL: {url}")
                 
                 # Get product URLs from this category page
-                product_urls = self._discoverProductUrlsRequests(category_url)
-                logger.info(f"Found {len(product_urls)} product URLs in category: {category_name}")
+                product_urls = self._discoverProductUrlsRequests(url)
+                logger.info(f"Found {len(product_urls)} product URLs in category: {cat}")
                 
                 # Scrape each product
                 for product_url in product_urls:
@@ -401,7 +407,7 @@ class UniversalFurnitureScraper:
                         if self.use_ai:
                             product = self.ai_extractor.extractProductInfo(response.text, product_url)
                             if product:
-                                product.category = category_name
+                                product.category = cat
                                 product_dict = asdict(product)
                                 category_products.append(product_dict)
 
@@ -414,38 +420,36 @@ class UniversalFurnitureScraper:
                         continue
                 
                 results.append(category_products)
-                logger.info(f"Completed category {category_name}: {len(category_products)} products")
+                logger.info(f"Completed category {cat}: {len(category_products)} products")
             
         except Exception as e:
             logger.error(f"Error scraping {base_url}: {e}")
         
         return results
 
-    def _discoverCategoryUrlsRequests(self, base_url: str, categories: List[str] = None) -> List[str]:
+    def _discoverCategoryUrlsRequests(self, base_url: str, categories: List[str] = None) -> dict:
         """
-            Discover category URLs from the main page using requests.
+        Discover category URLs from the main page and map them to the selected categories.
+        Each category can have multiple URLs if multiple links match.
 
-            Args:
-                base_url (str): The base URL of the website to scan for category links.
-                categories (List[str]): A list of category names to look for in the page.
-                                    If None, all links may be considered.
+        Args:
+            base_url (str): The base URL of the website.
+            categories (List[str]): List of categories to find. If None, all known categories are returned.
 
-            Returns:
-                List[str]: A list of URLs that match the specified categories.
+        Returns:
+            Dict[str, List[str]]: Mapping from category name to list of URLs.
         """
-        category_urls = []
+        category_urls = {}
         seen_links = set()
         base_domain = urlparse(base_url).netloc.lower()
-        
+
         try:
             response = self.session.get(base_url, timeout=10)
             soup = BeautifulSoup(response.content, 'html.parser')
-            
-            found_links = []
 
+            found_links = []
             for selector in CATEGORY_SELECTORS:
-                links = soup.select(selector)
-                for link in links:
+                for link in soup.select(selector):
                     href = link.get('href')
                     text = link.get_text().strip().lower()
                     if href:
@@ -454,41 +458,47 @@ class UniversalFurnitureScraper:
                             seen_links.add(full_url)
                             found_links.append((full_url, text))
 
-            if categories:
-                # Filter by requested categories - check URL and link text
-                for url, text in found_links:
-                    # Only consider URLs that belong to the same domain as base_url
-                    if base_domain not in url.lower():
-                        continue
+            logger.info(f"Found {len(found_links)} links:")
+            for url, text in found_links:
+                print(f"URL: {url}, text: '{text}'")
 
-                    for category in categories:
-                        category_lower = category.lower()
-                        # Check if category appears in URL path or link text
-                        if (category_lower in url.lower() or 
-                            category_lower in text or
-                            # Handle plural/singular variations
-                            category_lower.rstrip('s') in url.lower() or
-                            (category_lower + 's') in url.lower()):
-                            
-                            # Avoid duplicates
-                            if url not in category_urls:
-                                category_urls.append(url)
-                            break
+            # Determine which categories to match
+            if categories:
+                keywords_per_category = {}
+                for cat in categories:
+                    cat_lower = cat.lower()
+                    keywords_per_category[cat_lower] = CATEGORY_SYNONYMS.get(cat_lower, [cat_lower])
             else:
-                # Auto-detect furniture categories
-                for url, text in found_links:
-                    for keyword in FURNITURE_KEYWORDS:
-                        if keyword in text or keyword in url.lower():
-                            if url not in category_urls:
-                                category_urls.append(url)
-                            break
-            
-            logger.info(f"Discovered {len(category_urls)} category URLs")
+                keywords_per_category = CATEGORY_SYNONYMS
+
+            # Initialize dict with empty lists
+            for cat in keywords_per_category.keys():
+                category_urls[cat] = []
+
+            # Match URLs to categories (substring matching)
+            for url, text in found_links:
+                if base_domain not in url.lower():
+                    continue
+                for cat, keywords in keywords_per_category.items():
+                    for keyword in keywords:
+                        if keyword.lower() in url.lower() or keyword.lower() in text:
+                            if url not in category_urls[cat]:
+                                category_urls[cat].append(url)
+                            break  # Stop checking other keywords for this category
+
+            # Fallback: if a category has no matching URL, include base URL
+            for cat in category_urls:
+                if not category_urls[cat]:
+                    category_urls[cat] = []
+
+            logger.info(f"Discovered category URLs: {category_urls}")
             return category_urls
-            
+
         except Exception as e:
             logger.error(f"Error discovering categories from {base_url}: {e}")
-            return [base_url]  # Fallback to base URL as list
+            fallback = {cat.lower(): [base_url] for cat in categories} if categories else {k: [base_url] for k in CATEGORY_SYNONYMS}
+            return fallback
+
 
     def _discoverProductUrlsRequests(self, base_url: str) -> List[str]:
         """
