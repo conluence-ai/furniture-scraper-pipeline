@@ -30,6 +30,18 @@ CATEGORY_SELECTORS = [
     'a[href*="product"]', 'a[href*="prodotto"]', 'li a'
 ]
 
+# Selectors to fetch product links
+PRODUCT_SELECTORS = [
+    'a[href*="product"]', 'a[href*="prodotto"]', 'a[href*="item"]',
+    'a[href*="dettaglio"]', 'a[href*="detail"]', 'a[href*="portfolio"]',
+    '.product a', '.product-item a', '.product-list a',
+    '.product-thumb a', '.product-tile a', 'li a', 'a',
+    '.section-product-list-container a'
+]
+
+# Keywords that typically identify product detail pages
+PRODUCT_KEYWORDS = ["product", "prodotto", "item", "detail", "dettaglio", "portfolio", "collection"]
+
 # Mapping categories
 CATEGORY_SYNONYMS = {
     "sofa": ["sofa", "sofas", "divano", "divani"],
@@ -53,11 +65,11 @@ SELECTORS_TO_TRY = [
     '[class*="product"]', '[class*="item"]'
 ]
 
-PRODUCT_SELECTORS = [
-    'a[href*="product"]', 'a[href*="item"]', 'a[href*="furniture"]', \
-    '.product-link', '.item-link', '.product a', '.item a', \
-    'a[class*="product"]', 'a[class*="item"]'
-]
+# PRODUCT_SELECTORS = [
+#     'a[href*="product"]', 'a[href*="item"]', 'a[href*="furniture"]',
+#     '.product-link', '.item-link', '.product a', '.item a',
+#     'a[class*="product"]', 'a[class*="item"]', 
+# ]
 
 GENERIC_CONTENT_LINK = ['product', 'item', 'detail']
 

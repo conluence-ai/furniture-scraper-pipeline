@@ -21,6 +21,8 @@ from backend.config.playwright_scraper import PlaywrightScraper
 from backend.config.constant import (
     CATEGORY_SELECTORS,
     CATEGORY_SYNONYMS,
+    PRODUCT_SELECTORS,
+    PRODUCT_KEYWORDS,
     FURNITURE_KEYWORDS,
     PRODUCT_RESULT,
     NAME_SELECTORS,
@@ -388,40 +390,55 @@ class UniversalFurnitureScraper:
         try:
             # Find category URLs from the main page based on selected categories
             category_urls = self._discoverCategoryUrlsRequests(base_url, categories)
-            print(category_urls)
+
+            # Return of the category doesn't match
+            if not category_urls:
+                logger.info("No category URLs found. No results to scrape.")
+                return []
+            
             category_products = []
 
             # For each category, discover product URLs and scrape them
-            for cat, url in category_urls.items():
-                logger.info(f"Processing category '{cat}' at URL: {url}")
-                
-                # Get product URLs from this category page
-                product_urls = self._discoverProductUrlsRequests(url)
-                logger.info(f"Found {len(product_urls)} product URLs in category: {cat}")
-                
-                # Scrape each product
-                for product_url in product_urls:
-                    try:
-                        response = self.session.get(product_url, timeout=10)
-                        
-                        if self.use_ai:
-                            product = self.ai_extractor.extractProductInfo(response.text, product_url)
-                            if product:
-                                product.category = cat
-                                product_dict = asdict(product)
-                                category_products.append(product_dict)
+            for cat, urls in category_urls.items():
+                if not urls:
+                    logger.warning(f"No URLs found for category '{cat}', skipping.")
+                    continue
 
-                                logger.info(f"Successfully scraped product: {product.productName}")
-                        
-                        time.sleep(2)  # Rate limiting
-                        
-                    except Exception as e:
-                        logger.error(f"Error processing product {product_url}: {e}")
-                        continue
+                logger.info(f"Processing category '{cat}' with {len(urls)} URL(s).")
                 
-                results.append(category_products)
-                logger.info(f"Completed category {cat}: {len(category_products)} products")
-            
+                for url in urls:
+                    try:
+                        # Get product URLs from this category page
+                        product_urls = self._discoverProductUrlsRequests(url)
+                        
+                        if product_urls:
+                            logger.warning(f"No product found at {url} for category {cat}. Skipping URL.")
+                            continue
+
+                        logger.info(f"Found {len(product_urls)} product URLs at {url} for category: {cat}")
+                
+                        # Scrape each product
+                        for product_url in enumerate(product_urls):
+                            try:
+                                response = self.session.get(product_url, timeout=10)
+                                
+                                if self.use_ai:
+                                    product = self.ai_extractor.extractProductInfo(response.text, product_url)
+                                    if product:
+                                        product.category = cat
+                                        results.append(asdict(product))
+
+                                        logger.info(f"Scraped product: {product.productName}")
+                                
+                                time.sleep(2)  # Rate limiting
+                        
+                            except Exception as e:
+                                logger.error(f"Error processing product {product_url}: {e}")
+                                continue
+                    except Exception as e:
+                        logger.error(f"Error processing category URL {url}: {e}")
+                        continue
+                    
         except Exception as e:
             logger.error(f"Error scraping {base_url}: {e}")
         
@@ -487,9 +504,9 @@ class UniversalFurnitureScraper:
                             break  # Stop checking other keywords for this category
 
             # Fallback: if a category has no matching URL, include base URL
-            for cat in category_urls:
+            for cat in list(category_urls.keys()):
                 if not category_urls[cat]:
-                    category_urls[cat] = []
+                    del category_urls[cat]
 
             logger.info(f"Discovered category URLs: {category_urls}")
             return category_urls
@@ -516,16 +533,15 @@ class UniversalFurnitureScraper:
             response = self.session.get(base_url, timeout=10)
             soup = BeautifulSoup(response.content, 'html.parser')
 
-            for selector in CATEGORY_SELECTORS:
+            for selector in PRODUCT_SELECTORS:
                 links = soup.select(selector)
                 for link in links:
                     href = link.get('href')
                     text = link.get_text().strip().lower()
                     if href:
                         full_url = urljoin(base_url, href)
-                        product_keywords = ["product/", "item", "shop"]
-
-                        if full_url and full_url not in seen_links and any(kw in full_url.lower() for kw in product_keywords):
+                        
+                        if full_url and full_url not in seen_links and any(kw in full_url.lower() for kw in PRODUCT_KEYWORDS):
                             seen_links.add(full_url)
                             product_urls.append(full_url)
                             logger.info(f"Product link found: {text} -> {full_url}")

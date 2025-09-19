@@ -111,13 +111,14 @@ async def processSingleInput(data: str, furniture_categories: list[str]) -> str:
             site_url, 
             categories=furniture_categories
         )
-        logger.info(f"Category information extracted for {site_url}")
+        
+        if res:
+            logger.info(f"Category information extracted for {site_url}")
+            result += "\n" + logSummary(res[0])
 
-        result += "\n" + logSummary(res[0])
-
-        logger.info(f"Converting the scraped data to Excel file: 'scraped_file/{website_name}.xlsx'")
-        exportToExcel(res[0], os.path.join(SCRAPED_DIR, f"{website_name}.xlsx"))
-        logger.info(f"Stored data to Excel file: 'scraped_file/{website_name}.xlsx'")
+            logger.info(f"Converting the scraped data to Excel file: 'scraped_file/{website_name}.xlsx'")
+            exportToExcel(res[0], os.path.join(SCRAPED_DIR, f"{website_name}.xlsx"))
+            logger.info(f"Stored data to Excel file: 'scraped_file/{website_name}.xlsx'")
 
     except Exception as e:
         logger.error(f"Error processing URL {site_url}: {e}")
