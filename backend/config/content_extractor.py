@@ -9,7 +9,7 @@ from transformers import pipeline
 from backend.config.product import Product
 from backend.utils.helpers import isValidImageSrc
 import logging
-from backend.config.constant import PRODUCT_RESULT, NAME_SELECTORS, DESC_SELECTORS, DESIGNER_SELECTORS, CATEGORIES
+from backend.config.constant import PRODUCT_RESULT, NAME_SELECTORS, DESC_SELECTORS, DESIGNER_SELECTORS
 
 # Configure logging
 logging.basicConfig(
@@ -178,7 +178,7 @@ class AIContentExtractor:
         url_lower = url.lower()
         text_lower = text.lower()
         
-        for category in CATEGORIES:
+        for category in ['sofa', 'armchair']:
             if category in url_lower or category in text_lower:
                 result['category'] = category
                 break

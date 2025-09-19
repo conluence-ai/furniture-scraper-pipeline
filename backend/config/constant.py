@@ -8,24 +8,15 @@ UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 
 ALLOWED_EXTENSIONS = ['txt', 'csv', 'json', 'xlsx']
 
-CATEGORIES = ['sofa', 'armchairs']
+# Determine website frameworks for analysis strategy
+PAGE_FRAMEWORK = ['vue', 'react', 'angular', 'nuxt', 'next']
 
-ANALYSIS = {
-    'url': str,
-    'requires_js': False,
-    'framework': 'static',
-    'complexity': 'simple',
-    'recommended_scraper': 'requests',
-    'detected_patterns': []
-}
-
-# PAGE_FRAMEWORK = ['vue', 'react', 'angular', 'nuxt', 'next']
-PAGE_FRAMEWORK = ['vue']
-
-# Common furniture-related classes and IDs
+# Common furniture-related classes and IDs in root url
 FURNITURE_INDICATORS = [
-    'product', 'item', 'catalog', 'furniture', 'sofa', 'chair',  \
-    'table', 'collection', 'designer', 'brand', 'category'
+    'product', 'item', 'catalog', 'furniture', 'sofa', 'chair',
+    'table', 'collection', 'designer', 'brand', 'category',
+    'gallery', 'detail', 'overview', 'series', 'line',
+    'model', 'variant', 'sku', 'code'
 ]
 
 # Enhanced selectors for category links
