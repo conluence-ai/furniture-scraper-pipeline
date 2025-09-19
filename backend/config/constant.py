@@ -1,11 +1,14 @@
-UPLOAD_FOLDER = 'uploads'
+import os
 
-SCRAPED_FOLDER = 'scraped_file'
+# Define Folder path and name
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SCRAPED_DIR = os.path.join(BASE_DIR, "scraped_file")
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 
-ALLOWED_EXTENSIONS = {'txt', 'csv', 'json', 'xlsx'}
 
-# CATEGORIES = ['sofa', 'armchair']
-CATEGORIES = ['armchair']
+ALLOWED_EXTENSIONS = ['txt', 'csv', 'json', 'xlsx']
+
+CATEGORIES = ['sofa', 'armchairs']
 
 ANALYSIS = {
     'url': str,

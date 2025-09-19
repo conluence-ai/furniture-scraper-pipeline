@@ -26,7 +26,7 @@
                         <option value="">Choose an option...</option>
                         <option value="single">Single Brand Input</option>
                         <option value="multiple" disabled>Multiple Input</option>
-                        <option value="file" disabled>File Input</option>
+                        <option value="file">File Input</option>
                     </select>
                 </div>
                 
@@ -70,7 +70,7 @@
                         id="dataInput"
                         type="file" 
                         @change="handleFileUpload"
-                        accept=".txt,.csv,.json"
+                        accept=".txt,.csv,.json,.xlsx"
                     />
 
                     <!-- Categories field -->
@@ -239,7 +239,7 @@
                         eventSource.value.close();
                     }
 
-                    eventSource.value = new EventSource('/logs');
+                    eventSource.value = new EventSource('http://localhost:8001/logs');
                     
                     eventSource.value.onopen = () => {
                         isLogsConnected.value = true;
@@ -336,7 +336,7 @@
                 // Download merged file
                 const downloadMergedFile = async () => {
                     try {
-                        const response = await fetch('/download/merged');
+                        const response = await fetch('http://localhost:8001/download/merged');
                         if (response.ok) {
                             const blob = await response.blob();
                             const url = window.URL.createObjectURL(blob);
@@ -355,19 +355,43 @@
                     }
                 };
 
+                const extractBrandFromUrl = (url) => {
+                    try {
+                        const hostname = new URL(url).hostname;
+                        const parts = hostname.split(".");
+                        return parts.length > 1 ? parts[parts.length - 2] : hostname;
+                    } catch (err) {
+                        console.error("Invalid URL:", err);
+                        return "scraped_data";
+                    }
+                };
+
                 // Download scraped file
                 const downloadScrapedFile = async () => {
                     try {
-                        const response = await fetch('/download/scraped');
+                        let brand = "scraped_data";
+
+                        // Get brand based on input type
+                        if (inputType.value === 'single' && singleInput.value) {
+                            brand = extractBrandFromUrl(singleInput.value);
+                        } else if (inputType.value === 'multiple' && multipleInputs.value.length > 0) {
+                            brand = extractBrandFromUrl(multipleInputs.value[0]); // use first one for now
+                        } else if (inputType.value === 'file' && selectedFile.value) {
+                            brand = selectedFile.value.name.split(".")[0]; // fallback: file name
+                        }
+
+                        const response = await fetch('http://localhost:8001/download/scraped', {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ brand })
+                        });
+
                         if (response.ok) {
                             const blob = await response.blob();
                             const url = window.URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-
-                            // Use proper extension
-                            a.download = 'casamagna.xlsx';
-
+                            a.download = `${brand}.xlsx`; // dynamic filename
                             document.body.appendChild(a);
                             a.click();
                             document.body.removeChild(a);
@@ -421,7 +445,7 @@
                             formData.append('priceListingFile', priceListingFile.value);
                         }
 
-                        const response = await fetch('/process', {
+                        const response = await fetch('http://localhost:8001/process', {
                             method: 'POST',
                             body: formData
                         });

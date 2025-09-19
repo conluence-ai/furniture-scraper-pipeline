@@ -91,7 +91,7 @@ def exportToExcel(results: List, filename: str):
     df = pd.DataFrame(results)
 
     # Convert DataFrame to Excel
-    df.to_excel(f"{filename}.xlsx", index=False, engine="openpyxl")
+    df.to_excel(f"{filename}", index=False, engine="openpyxl")
     
 def logSummary(results: List) -> str:
     """

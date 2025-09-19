@@ -3,14 +3,15 @@ import os
 import asyncio
 import json
 import logging
-from queue import Queue
 from flask_cors import CORS
-from threading import Thread
-from datetime import datetime
 from flask import Flask, request, jsonify, Response, send_from_directory, send_file
-from backend.services.scraper import FurnitureScrapingPipeline
-from backend.config.constant import UPLOAD_FOLDER, CATEGORIES, SCRAPED_FOLDER
-from backend.utils.helpers import isValidUrl, getWebsiteName, exportToExcel, logSummary
+
+# Import local modules
+from backend.services.scraper import processSingleInput
+from backend.logs.logs_handler import SSELogHandler, sendLogToFrontend, log_queue
+
+# Import constants
+from backend.config.constant import SCRAPED_DIR, UPLOAD_DIR
 
 # Configure logging
 logging.basicConfig(
@@ -27,149 +28,24 @@ app = Flask(__name__, static_folder="../frontend", static_url_path="/")
 CORS(app)  # Enable CORS for all routes
 
 # Configuration
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['UPLOAD_FOLDER'] = UPLOAD_DIR
 
-# Create upload directory if it doesn't exist
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(SCRAPED_FOLDER, exist_ok=True)
-
-# Global log queue for real-time streaming
-log_queue = Queue()
-
-class SSELogHandler(logging.Handler):
-    """Custom logging handler that sends logs to the SSE queue"""
-    
-    def emit(self, record):
-        try:
-            log_entry = {
-                'message': self.format(record),
-                'level': self.get_log_level(record.levelno),
-                'timestamp': datetime.now().strftime('%H:%M:%S')
-            }
-            log_queue.put(log_entry)
-        except Exception:
-            self.handleError(record)
-    
-    def get_log_level(self, levelno):
-        if levelno >= logging.ERROR:
-            return 'error'
-        elif levelno >= logging.WARNING:
-            return 'warning'
-        elif levelno >= logging.INFO:
-            return 'info'
-        else:
-            return 'info'
+# Create directory if it doesn't exist
+os.makedirs(SCRAPED_DIR, exist_ok=True)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
         
 # Add SSE handler to logger
 sse_handler = SSELogHandler()
 sse_handler.setFormatter(logging.Formatter('%(message)s'))
 logging.getLogger().addHandler(sse_handler) 
 
-def sendLogToFrontend(message, level='info'):
-    """Helper function to send custom log messages to frontend"""
-    log_entry = {
-        'message': message,
-        'level': level,
-        'timestamp': datetime.now().strftime('%H:%M:%S')
-    }
-    log_queue.put(log_entry)
+# Health check endpoint
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint"""
+    return jsonify({"status": "healthy"}), 200
 
-async def processSingleInput(data: str, furniture_categories: list[str]) -> str:
-    """
-        Process a single input which can be a brand name or a URL.
-        
-        Args:
-            data (str): The input data, which can be a brand name or a URL.
-            furniture_categories (list[str]): Contains the list of furniture categories.
-            
-        Returns:
-            str: Processed result or error message.
-    """
-    logger.info(f"Processing single input: {data}")
-
-    # Initialize vairables
-    result = ""
-    site_url = ""
-    website_name = ""
-    brand_input = data.strip()
-
-    # Check if the input is a valid URL
-    if isValidUrl(brand_input):
-        logger.info(f"Input is a valid URL: {brand_input}")
-
-        site_url = brand_input
-        website_name = getWebsiteName(site_url)
-        
-        result = f"Brand Name: {website_name.capitalize()}\n"
-        result += f"Official Website: {site_url}\n"
-
-    # If no URL found, return error
-    if not site_url:
-        logger.error(f"No official website found for {brand_input}.")
-        return f"Error: No official website found for {brand_input}."
-    
-    # Process the URL to extract category information
-    try:
-        logger.info(f"Extracting product information for {site_url}")
-
-        # Initialize pipeline
-        pipeline = FurnitureScrapingPipeline() # without AI
-        # # openai_key = "openai-api-key"
-        # # pipeline = FurnitureScrapingPipeline(openai_api_key=openai_key)  # with AI
-
-        # # Parse categories if it's a string
-        if furniture_categories:
-            try:
-                furniture_categories = json.loads(furniture_categories)
-            except json.JSONDecodeError:
-                # fallback: treat as single category string
-                furniture_categories = [furniture_categories]
-        else:
-            furniture_categories = []
-
-        res = await pipeline.scrapeAnyWebsite(
-            site_url, 
-            categories=furniture_categories
-        )
-        logger.info(f"Category information extracted for {site_url}")
-
-        result += "\n" + logSummary(res[0])
-
-        logger.info(f"Converting the scraped data to Excel file: 'scraped_files/{website_name}.xlsx'")
-        exportToExcel(res[0], f'scraped_file/{website_name}')
-        logger.info(f"Stored data to Excel file: 'scraped_files/{website_name}.xlsx'")
-
-    except Exception as e:
-        logger.error(f"Error processing URL {site_url}: {e}")
-        return f"Error processing URL: {e}"
-
-    # Return brand info
-    return result
-
-@app.route('/logs')
-def streamLogs():
-    """Server-Sent Events endpoint for real-time logs"""
-    def generate():
-        try:
-            while True:
-                try:
-                    # Get log entry from queue (blocking with timeout)
-                    log_entry = log_queue.get(timeout=30)
-                    yield f"data: {json.dumps(log_entry)}\n\n"
-                except:
-                    # Send heartbeat to keep connection alive
-                    yield f"data: {json.dumps({'message': '', 'level': 'heartbeat', 'timestamp': ''})}\n\n"
-        except GeneratorExit:
-            # Client disconnected, safely exit generator
-            print("Client disconnected from logs stream")
-            return
-    
-    return Response(generate(), mimetype='text/event-stream', headers={
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-    })
-
+# Main scraper process endpoint
 @app.route('/process', methods=['POST'])
 def processData():
     """Main processing endpoint"""
@@ -216,20 +92,52 @@ def processData():
             "error": f"Server error: {str(e)}"
         }), 500
 
-@app.route("/download/scraped")
+@app.route('/logs')
+def streamLogs():
+    """Server-Sent Events endpoint for real-time logs"""
+    def generate():
+        try:
+            while True:
+                try:
+                    # Get log entry from queue (blocking with timeout)
+                    log_entry = log_queue.get(timeout=30)
+                    yield f"data: {json.dumps(log_entry)}\n\n"
+                except:
+                    # Send heartbeat to keep connection alive
+                    yield f"data: {json.dumps({'message': '', 'level': 'heartbeat', 'timestamp': ''})}\n\n"
+        except GeneratorExit:
+            # Client disconnected, safely exit generator
+            print("Client disconnected from logs stream")
+            return
+    
+    return Response(generate(), mimetype='text/event-stream', headers={
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+    })
+
+# Download scraped file
+@app.route("/download/scraped", methods=["POST"])
 def download_file():
-    print('dowanload filessssssș')
-    return send_file("/app/scraped_file/casamagna.xlsx", as_attachment=True)
+    print('Inside download scraped data')
+    data = request.get_json()
+    brand = data.get("brand", "scraped_data")
+    print('Download for brand', brand)
+
+
+    file_path = os.path.join(SCRAPED_DIR, f"{brand}.xlsx")  # adjust your file path logic
+    print('File path: ', file_path)
+    if not os.path.exists(file_path):
+        return {"error": f"File not found for {brand}"}, 404
+    try:
+        return send_file(file_path, as_attachment=True)
+    except FileNotFoundError:
+        return jsonify({"error": f"No file found for {brand}"}), 404
 
 # Serve index.html
 @app.route("/")
 def serve_index():
     return send_from_directory(os.path.join(app.root_path, "..", "frontend"), "index.html")
-
-@app.route('/health', methods=['GET'])
-def health():
-    """Health check endpoint"""
-    return jsonify({"status": "healthy"}), 200
 
 if __name__ == '__main__':
     logger.info("Starting Flask server...")
