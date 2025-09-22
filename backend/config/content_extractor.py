@@ -9,7 +9,9 @@ from transformers import pipeline
 from backend.config.product import Product
 from backend.utils.helpers import isValidImageSrc
 import logging
-from backend.config.constant import PRODUCT_RESULT, NAME_SELECTORS, DESC_SELECTORS, DESIGNER_SELECTORS
+
+from backend.config.config import ProductScraped
+from backend.config.constant import NAME_SELECTORS, DESC_SELECTORS, DESIGNER_SELECTORS
 
 # Configure logging
 logging.basicConfig(
@@ -45,7 +47,7 @@ class AIContentExtractor:
         except:
             self.nlp_pipeline = None
     
-    def extractProductInfo(self, html_content: str, url: str) -> Optional[Product]:
+    def extractProductInfo(self, html_content: str, url: str) -> ProductScraped:
         """
             Extract product information from given HTML using AI.
 
@@ -82,7 +84,7 @@ class AIContentExtractor:
             - name: Product name
             - description: Product description
             - designer: Designer name
-            - category: Product category (sofa, chair, table, etc.)
+            - furnitureType: Product category (sofa, chair, table, etc.)
             - imageUrls: Lists of image URLs of the product
             
             Return only valid JSON.
@@ -102,14 +104,14 @@ class AIContentExtractor:
                 productUrl=url,
                 designerName=result.get('designer', ''),
                 imageUrls=result.get('imageUrls', ''),
-                category=result.get('category', ''),
+                furnitureType=result.get('furnitureType', ''),
             )
             
         except Exception as e:
             logger.error(f"OpenAI extraction failed: {e}")
             return None
     
-    def _extractWithLocalAI(self, html_content: str, url: str) -> Optional[Product]:
+    def _extractWithLocalAI(self, html_content: str, url: str) -> extractProductInfo:
         """
             Extract product information from given HTML using local heuristics.
 
@@ -136,7 +138,7 @@ class AIContentExtractor:
         
         return None
     
-    def _extractWithHeuristics(self, soup: BeautifulSoup, text: str, url: str) -> Optional[Dict]:
+    def _extractWithHeuristics(self, soup: BeautifulSoup, text: str, url: str) -> ProductScraped:
         """
             Extract product information using heuristic patterns and HTML structure patterns.
 
@@ -146,10 +148,17 @@ class AIContentExtractor:
                 url (str): The URL of the page being processed, used for context or fallback.
             
             Returns:
-                Optional[Dict]: A dictionary containing product attributes, or None if no data found.
+                ProductScraped: A dictionary containing product attributes, or None if no data found.
         """
-        result = PRODUCT_RESULT
-        result['productUrl'] = url
+        result: ProductScraped = {
+            'productName': '',
+            'description': '',
+            'productUrl': url,
+            'designerName': '',
+            'imageUrls': [],
+            'furnitureType': ''
+        }
+
         product_name = ""
         
         # Extract name (usually in h1, h2, or title-like classes)
@@ -167,21 +176,19 @@ class AIContentExtractor:
                 result['description'] = element.get_text().strip()
                 break
         
+        text_lower = text.lower()
+
         # Extract designer
         for selector in DESIGNER_SELECTORS:
             element = soup.select_one(selector)
             if element and element.get_text().strip():
                 result['designerName'] = element.get_text().strip()
                 break
-        
-        # Determine category from URL or content
-        url_lower = url.lower()
-        text_lower = text.lower()
-        
-        for category in ['sofa', 'armchair']:
-            if category in url_lower or category in text_lower:
-                result['category'] = category
-                break
+
+        if not result['designerName']:
+            match = re.search(r"design(?:ed)? by ([\w\s]+)", text_lower, re.IGNORECASE)
+            if match:
+                result['designerName'] = match.group(1).title()
         
         # Extract images
         image_urls = []

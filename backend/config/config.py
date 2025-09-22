@@ -7,3 +7,11 @@ class WebAnalysis:
     complexity: str = 'simple'
     recommended_scraper: str = 'requests'
     detected_patterns: List = []
+
+class ProductScraped:
+    productName: str = ''
+    description: str = ''
+    productUrl: str = ''
+    designerName: str = ''
+    imageUrls: List = []
+    furnitureType: str = ''

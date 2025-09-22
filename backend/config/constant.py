@@ -40,7 +40,14 @@ PRODUCT_SELECTORS = [
 ]
 
 # Keywords that typically identify product detail pages
-PRODUCT_KEYWORDS = ["product", "prodotto", "item", "detail", "dettaglio", "portfolio", "collection"]
+PRODUCT_KEYWORDS = ['product/']
+
+# Common non-product endings you want to ignore
+COMMON_ENDINGS = {
+    "product", "products", "item", "items", "catalog", 
+    "shop", "store", "collections", "collection"
+    "prodotto", "prodotti", "articolo", "articoli"
+}
 
 # Mapping categories
 CATEGORY_SYNONYMS = {
@@ -65,45 +72,36 @@ SELECTORS_TO_TRY = [
     '[class*="product"]', '[class*="item"]'
 ]
 
-# PRODUCT_SELECTORS = [
-#     'a[href*="product"]', 'a[href*="item"]', 'a[href*="furniture"]',
-#     '.product-link', '.item-link', '.product a', '.item a',
-#     'a[class*="product"]', 'a[class*="item"]', 
-# ]
-
 GENERIC_CONTENT_LINK = ['product', 'item', 'detail']
 
-PRODUCT_RESULT = {
-    'productName': '',
-    'description': '',
-    'productUrl': '',
-    'designerName': '',
-    'imageUrls': [],
-    'category': ''
-}
-
+# Product name selectors (titles/headings)
 NAME_SELECTORS = [
-    'h1', 'h2', '.product-title', '.product-name', '.title', \
-    '.name', '[class*="title"]', '[class*="name"]'
+    'h1', 'h2', 'h3',
+    '.product-title', '.product-name', '.title', '.name',
+    '[class*="title"]', '[class*="name"]',
+    'meta[property="og:title"]', 'meta[name="title"]'
 ]
 
+# Description selectors (details, summaries, info blocks)
 DESC_SELECTORS = [
-    '.description', '.product-description', '.product-info', \
-    '.details', '.content', '[class*="description"]'
+    '.description', '.product-description', '.product-info',
+    '.details', '.content', '.summary', '.product-details',
+    '[class*="description"]', '[class*="details"]', '[class*="info"]',
+    'meta[name="description"]', 'meta[property="og:description"]'
 ]
 
-# DESIGNER_SELECTORS = [
-#     '.designer', '.brand', '.author', '.by', \
-#     '[class*="designer"]', '[class*="brand"]'
-# ]
+# Designer / brand selectors
+DESIGNER_SELECTORS = [
+    '.designer', '.brand', '.author', '.by', '.firma'
+    # '[class*="designer"]', '[class*="brand"]', '[class*="firma"]',
+    # '[class*="author"]', '[class*="by"]'
+]
 
-DESIGNER_SELECTORS = ['.designer']
-
-# Extract images with better handling for lazy-loaded images
+# Image selectors (supporting lazy loading)
 IMAGE_SELECTORS = [
-    'img[src]', 'img[data-src]', 'img[data-lazy]', 'img[data-original]',
+    'img[src]', 'img[data-src]', 'img[data-lazy]', 'img[data-original]', 'img[data-srcset]',
     '.product-image img', '.gallery img', '.image-container img',
-    '[class*="image"] img', '[class*="photo"] img'
+    '[class*="image"] img', '[class*="photo"] img', '[class*="gallery"] img'
 ]
 
 INVALID_IMAGE = ['.svg', 'icon', 'logo', '.gif']

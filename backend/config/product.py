@@ -10,4 +10,4 @@ class Product:
     productUrl: str
     designerName: str
     imageUrls: List[str]
-    category: str
+    furnitureType: str

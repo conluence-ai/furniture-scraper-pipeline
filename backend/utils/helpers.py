@@ -113,10 +113,10 @@ def logSummary(results: List) -> str:
     summary += "="*60
     
     df = pd.DataFrame(results)
-    categories = df['category'].unique()
+    categories = df['furnitureType'].unique()
         
     for cat in categories:            
-        count = len(df[df['category'] == cat])
+        count = len(df[df['furnitureType'] == cat])
         summary += f"\n{cat}: {count} products"
         logger.info(f"  {cat}: {count} products")
         
