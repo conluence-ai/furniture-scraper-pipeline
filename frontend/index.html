@@ -376,28 +376,51 @@
                             brand = extractBrandFromUrl(singleInput.value);
                         } else if (inputType.value === 'multiple' && multipleInputs.value.length > 0) {
                             brand = extractBrandFromUrl(multipleInputs.value[0]); // use first one for now
-                        } else if (inputType.value === 'file' && selectedFile.value) {
-                            brand = selectedFile.value.name.split(".")[0]; // fallback: file name
                         }
+                        
+                        if (inputType.value === 'file' && selectedFile.value) {
+                            const formData = new FormData();
+                            formData.append('file', selectedFile.value);
+                            formData.append('categories', JSON.stringify(categories.value));
 
-                        const response = await fetch('http://localhost:8001/download/scraped', {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ brand })
-                        });
+                            const response = await fetch('http://localhost:8001/download/scraped', {
+                                method: 'POST',
+                                body: formData, // <-- do NOT set Content-Type manually
+                            });
 
-                        if (response.ok) {
-                            const blob = await response.blob();
-                            const url = window.URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `${brand}.xlsx`; // dynamic filename
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            window.URL.revokeObjectURL(url);
+                            if (response.ok) {
+                                const blob = await response.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = "scraped_data.zip";
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                window.URL.revokeObjectURL(url);
+                            } else {
+                                alert('Error downloading scraped file');
+                            }
                         } else {
-                            alert('Error downloading scraped file');
+                            const response = await fetch("http://localhost:8001/download/scraped", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ brand })
+                            });
+
+                            if (response.ok) {
+                                const blob = await response.blob();
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement("a");
+                                a.href = url;
+                                a.download = `${brand}.xlsx`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                window.URL.revokeObjectURL(url);
+                            } else {
+                                alert("Error downloading scraped file");
+                            }
                         }
                     } catch (err) {
                         alert('Error downloading scraped file: ' + err.message);

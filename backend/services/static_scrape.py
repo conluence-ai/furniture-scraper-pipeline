@@ -3,10 +3,9 @@ import re
 import time
 import requests
 import logging
-from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from dataclasses import asdict
-from urllib.parse import urljoin
+from urllib.parse import urlparse, urljoin
 from typing import List
 
 # Import local module
@@ -159,8 +158,6 @@ class StaticScraper:
                             found_links.append((full_url, text))
 
             logger.info(f"Found {len(found_links)} links:")
-            for url, text in found_links:
-                print(f"URL: {url}, text: '{text}'")
 
             # Determine which categories to match
             if categories:
@@ -210,8 +207,9 @@ class StaticScraper:
         last_part = path_parts[-1].lower()
 
         # Filter out URLs that end in common category words
-        if last_part in COMMON_ENDINGS:
-            return False
+        for words in COMMON_ENDINGS:
+            if words in last_part.lower():
+                return False
 
         # Ensure last part has some length and is not just numeric (optional rule)
         if len(last_part) < 3:
@@ -232,23 +230,37 @@ class StaticScraper:
                 List[str]: A List of product URL found.
         """
         product_urls = []
+        seen_links = set()
         
         try:
             response = self.session.get(base_url, timeout=10)
             soup = BeautifulSoup(response.content, 'html.parser')
+
+            # Get base domain (for filtering)
+            base_domain = urlparse(base_url).netloc
 
             for selector in PRODUCT_SELECTORS:
                 links = soup.select(selector)
                 for link in links:
                     href = link.get('href')
                     text = link.get_text().strip().lower()
-                    if href:
-                        full_url = urljoin(base_url, href)
+
+                    if not href:
+                        continue
+
+                    # Build absolute URL
+                    full_url = urljoin(base_url, href)
+                    parsed_full = urlparse(full_url)
+
+                    # Only allow same-domain links
+                    if parsed_full.netloc != "" and base_domain not in parsed_full.netloc:
+                        continue
                         
-                        if full_url and self._isProductUrl(full_url):
-                            seen_links.add(full_url)
-                            product_urls.append(full_url)
-                            logger.info(f"Product link found: {text} -> {full_url}")
+                    # Run product URL check
+                    if full_url not in seen_links and self._isProductUrl(full_url):
+                        seen_links.add(full_url)
+                        product_urls.append(full_url)
+                        logger.info(f"Product link found: {text} -> {full_url}")
             
             logger.info(f"Discovered {len(product_urls)} product URLs")
             return product_urls

@@ -2,9 +2,9 @@ import os
 
 # Define Folder path and name
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SCRAPED_DIR = os.path.join(BASE_DIR, "scraped_file")
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-
+SCRAPED_DIR = os.path.join(BASE_DIR, 'scraped_file')
+UPLOAD_DIR = os.path.join(BASE_DIR, 'uploads')
+PRICE_UPLOAD = os.path.join(BASE_DIR, 'price_listings')
 
 ALLOWED_EXTENSIONS = ['txt', 'csv', 'json', 'xlsx']
 
@@ -43,22 +43,32 @@ PRODUCT_SELECTORS = [
 PRODUCT_KEYWORDS = ['product/']
 
 # Common non-product endings you want to ignore
-COMMON_ENDINGS = {
-    "product", "products", "item", "items", "catalog", 
-    "shop", "store", "collections", "collection"
-    "prodotto", "prodotti", "articolo", "articoli"
-}
+COMMON_ENDINGS = [
+    'product', 'products', 'item', 'items', 'catalog', 'shop', 'store',
+    'collections', 'collection', 'prodotto', 'prodotti', 'articolo',
+    'articoli', 'upholstery','accessories', 'table', 'bookcase', 'drawers',
+    'board', 'tallboy', 'armchair', 'stool', 'sofa', 'bed', 'chair', 'mirror',
+    'download', 'web', 'about', 'home', 'contacts','policy', 'privacy',
+    'conditions', '.com', '.pt', 'furniture', 'console', 'benches', 'seatings',
+    'bench', 'seatings', 'stackable', 'swivel', 'ottoman', 'pouf', 'conference',
+    'occasional', 'multipurpose', 'dining', 'outdoor', 'stacking', 'lounge', 'mco',
+    'textiles', 'fabricapprovals', 'finishes', 'quickship', 'history', 'certificates',
+    'certificate', 'awards', 'prices', 'contact', 'designers', 'designer', 'contest',
+    'work', 'projects', 'project', 'showrooms', 'notice', 'talent', 'in-the-world',
+    'professionals', 'pricelist', 
+    'aHR0cHM6Ly9hbmRyZXV3b3JsZC5jb20vZXMvcHJvZHVjdHMvb3V0ZG9vci9zb2Zhcw%2C%2C'
+]
 
 # Mapping categories
 CATEGORY_SYNONYMS = {
-    "sofa": ["sofa", "sofas", "divano", "divani"],
-    "armchair": ["armchair", "armchairs", "poltrona", "poltrone"],
-    "pouf": ["pouf", "pouffe", "ottoman", "ottomans"],
-    "stool": ["stool", "stools", "sgabello", "sgabelli"],
-    "bench": ["bench", "benches", "panca", "panche"],
-    "table": ["table", "tables", "tavolo", "tavoli"],
-    "console": ["console", "consoles"],
-    "ottoman": ["ottoman", "ottomans", "pouf", "pouffe"]
+    'sofa': ['sofa', 'sofas', 'divano', 'divani'],
+    'armchair': ['armchair', 'armchairs', 'poltrona', 'poltrone'],
+    'pouf': ['pouf', 'pouffe', 'ottoman', 'ottomans'],
+    'stool': ['stool', 'stools', 'sgabello', 'sgabelli'],
+    'bench': ['bench', 'benches', 'panca', 'panche'],
+    'table': ['table', 'tables', 'tavolo', 'tavoli'],
+    'console': ['console', 'consoles'],
+    'ottoman': ['ottoman', 'ottomans', 'pouf', 'pouffe']
 }
 
 # Filter links based on requested categories or furniture keywords
@@ -93,8 +103,9 @@ DESC_SELECTORS = [
 # Designer / brand selectors
 DESIGNER_SELECTORS = [
     '.designer', '.brand', '.author', '.by', '.firma'
-    # '[class*="designer"]', '[class*="brand"]', '[class*="firma"]',
-    # '[class*="author"]', '[class*="by"]'
+    '[class*="designer-name"]',
+    # , '[class*='brand']', '[class*='firma']',
+    # '[class*='author']', '[class*='by']'
 ]
 
 # Image selectors (supporting lazy loading)
